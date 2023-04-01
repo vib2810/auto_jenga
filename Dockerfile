@@ -16,8 +16,9 @@ COPY src/jenga_packages /home/ros_ws/src/jenga_packages
 
 RUN sudo apt install ros-noetic-moveit -y
 
-RUN mkdir -p /home/ros_ws/src/moveit && cd /home/ros_ws/src/moveit && git clone https://github.com/ros-planning/moveit_tutorials.git -b master \
-&& git clone https://github.com/ros-planning/panda_moveit_config.git -b noetic-devel
+RUN mkdir -p /home/ros_ws/src/git_packages 
+# RUN cd /home/ros_ws/src/git_packages && git clone https://github.com/ros-planning/moveit_tutorials.git -b master
+# && git clone https://github.com/ros-planning/panda_moveit_config.git -b noetic-devel
 
 #rosdep install on src folder
 RUN /bin/bash -c "source /opt/ros/noetic/setup.bash; cd /home/ros_ws; rosdep install --from-paths src --ignore-src -r -y"
