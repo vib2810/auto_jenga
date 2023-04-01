@@ -5,6 +5,8 @@ import tf
 import numpy as np
 from geometry_msgs.msg import Pose
 from frankapy import FrankaArm
+import quaternion
+from autolab_core import RigidTransform
 
 # 75mm length, 15mm height
 
@@ -18,43 +20,30 @@ class GripperPoseCalculatorNode(object):
 
         # Initialize FrankaArm object
         self.arm = FrankaArm()
+        self.arm.reset_joints()
 
         # Initialize variables
         self.gripper_pose = None
+        
 
         # Spin node
         rospy.spin()
 
     def pose_callback(self, msg):
-        # Convert pose message to a transformation matrix
-        pose = tf.transformations.translation_matrix((msg.position.x, msg.position.y, msg.position.z))
-        quaternion = (
-            msg.orientation.x,
-            msg.orientation.y,
-            msg.orientation.z,
-            msg.orientation.w
-        )
-        rotation = tf.transformations.quaternion_matrix(quaternion)
-        transform = rotation.dot(pose)
-
-        # Define gripper pose offset from end effector
-        offset = tf.transformations.translation_matrix((0, 0, -0.135))
 
         # Calculate gripper pose
-        self.gripper_pose = transform.dot(offset)
 
-        # Move to start pose
-        self.arm.goto_pose(tool_pose = self.gripper_pose.flatten().tolist(), duration=1, dynamic=True)
-        rospy.sleep(1.5)
-        
+        q_np = np.quaternion(msg.orientation.w, msg.orientation.x, msg.orientation.y, msg.orientation.z)
+        rotation_matrix = quaternion.as_rotation_matrix(q_np)
+        des_pose = RigidTransform(rotation= rotation_matrix,
+            translation=np.array([msg.position.x, msg.position.y, msg.position.z-0.135]),
+            from_frame='franka_tool', to_frame='world')
+        self.arm.goto_pose(des_pose, dynamic=True, use_impedance=False)
+
+        rospy.sleep(5)
+
         # Close gripper to grip block
         self.arm.close_gripper()
-        
-        # rospy.sleep(0.5)  # Wait for gripper to close
 
-        # Open gripper to release block
-        # self.arm.set_gripper_width(gripper_width)
-        # rospy.sleep(0.5)  # Wait for gripper to open
-        
 if __name__ == '__main__':
     GripperPoseCalculatorNode()
