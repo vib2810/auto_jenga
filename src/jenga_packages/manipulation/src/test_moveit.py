@@ -50,24 +50,11 @@ joint_goal[6] = 0
 
 # The go command can be called with joint values, poses, or without any
 # parameters if you have already set the pose or joint target for the group
-group.go(joint_goal, wait=True)
+plan = group.go(joint_goal, wait=True)
+print(plan)
 
 # Calling ``stop()`` ensures that there is no residual movement
 group.stop()
-
-pose_goal = geometry_msgs.msg.Pose()
-pose_goal.orientation.w = 1.0
-pose_goal.position.x = 0.4
-pose_goal.position.y = 0.1
-pose_goal.position.z = 0.4
-group.set_pose_target(pose_goal)
-
-plan = group.go(wait=True)
-# Calling `stop()` ensures that there is no residual movement
-group.stop()
-# It is always good to clear your targets after planning with poses.
-# Note: there is no equivalent function for clear_joint_value_targets()
-group.clear_pose_targets()
 
 display_trajectory = moveit_msgs.msg.DisplayTrajectory()
 display_trajectory.trajectory_start = robot.get_current_state()
@@ -75,4 +62,24 @@ display_trajectory.trajectory.append(plan)
 # Publish
 display_trajectory_publisher.publish(display_trajectory)
 
-group.execute(plan, wait=True)
+# pose_goal = geometry_msgs.msg.Pose()
+# pose_goal.orientation.w = 1.0
+# pose_goal.position.x = 0.4
+# pose_goal.position.y = 0.1
+# pose_goal.position.z = 0.4
+# group.set_pose_target(pose_goal)
+
+# plan = group.go(wait=True)
+# # Calling `stop()` ensures that there is no residual movement
+# group.stop()
+# # It is always good to clear your targets after planning with poses.
+# # Note: there is no equivalent function for clear_joint_value_targets()
+# group.clear_pose_targets()
+
+# display_trajectory = moveit_msgs.msg.DisplayTrajectory()
+# display_trajectory.trajectory_start = robot.get_current_state()
+# display_trajectory.trajectory.append(plan)
+# # Publish
+# display_trajectory_publisher.publish(display_trajectory)
+
+# group.execute(plan, wait=True)
