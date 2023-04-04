@@ -1,5 +1,6 @@
 import numpy as np
-
+import sys
+sys.path.append("/home/ros_ws/src/jenga_packages/frankapy")
 from frankapy import FrankaArm, SensorDataMessageType
 from frankapy import FrankaConstants as FC
 from frankapy.proto_utils import sensor_proto2ros_msg, make_sensor_group_msg

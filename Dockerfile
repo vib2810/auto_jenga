@@ -30,6 +30,14 @@ RUN echo "source /home/ros_ws/devel/setup.bash" >> ~/.bashrc
 RUN pip3 install autolab_core 
 RUN pip3 install --force-reinstall numpy==1.23.5 && pip3 install --force-reinstall pillow==9.0.1 && pip3 install --force-reinstall scipy==1.8
 RUN pip3 install numpy-quaternion numba && pip3 install --upgrade google-api-python-client 
+RUN pip3 install --force-reinstall numpy==1.23.5
+
+RUN apt install gnome-terminal -y
+
+# echo to .bashrc
+# RUN echo "ROS_MASTER_URI=http://172.26.165.201:11311" >> ~/.bashrc
+# RUN echo "ROS_HOSTNAME=172.26.165.201" >> ~/.bashrc
+# RUN echo "ROS_IP=172.26.165.201" >> ~/.bashrc
 
 # set workdir as home/ros_ws
 WORKDIR /home/ros_ws
