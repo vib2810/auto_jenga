@@ -18,6 +18,7 @@ if __name__ == "__main__":
             print("pose: ")
             print(T_ee_world)
             time.sleep(0.01)
+            
         if(input_num==2):
             joints = fa.get_joints()
             print("joints: ")
