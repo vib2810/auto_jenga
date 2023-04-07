@@ -6,8 +6,20 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   geometry_msgs
+  message_generation
 )
 
+add_service_files(
+  FILES
+  block_pose.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  geometry_msgs
+  
+)
 ## Declare a catkin package
 catkin_package()
 
@@ -15,6 +27,8 @@ catkin_package()
 include_directories(
   ${catkin_INCLUDE_DIRS}
 )
+
+
 
 ## Add executables
 catkin_install_python(PROGRAMS

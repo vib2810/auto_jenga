@@ -1,0 +1,4 @@
+geometry_msgs/PoseStamped des_pose
+int32 id
+---
+bool success
