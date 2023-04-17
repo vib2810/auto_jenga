@@ -17,12 +17,12 @@ include_directories(
 
 ## Add executables
 catkin_install_python(PROGRAMS
-  src/test_moveit.py
+  src/demo_moveit.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 catkin_install_python(PROGRAMS
-  src/robot_state_converter.py
+  src/robot_joint_converter.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
