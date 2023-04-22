@@ -1,0 +1,10 @@
+# Goal definition
+string input_text
+
+# Result definition
+---
+bool success
+
+# Feedback definition
+---
+float32 feedback_progress

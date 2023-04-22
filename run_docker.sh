@@ -6,9 +6,6 @@ docker run --privileged --rm -it \
     --env="QT_X11_NO_MITSHM=1" \
     --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
     --volume="$XAUTH:$XAUTH" \
-    --network host \ 
-    -v $(pwd)/src/jenga_packages:/home/ros_ws/src/jenga_packages \
-    auto_jenga \
-    bash
-
-# NOTE: --network host is used to allow the container to access the host's network
+    --network host \
+    -v "$(pwd)/src/jenga_packages:/home/ros_ws/src/jenga_packages" \
+    auto_jenga bash
