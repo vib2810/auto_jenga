@@ -3,7 +3,7 @@
   <name>manipulation</name>
   <version>0.0.1</version>
   <description>
-    My package description
+    A package which allows the use of moveit with frankapy.
   </description>
 
   <maintainer email="vib2810@gmail.com">Vibhakar Mohta</maintainer>
