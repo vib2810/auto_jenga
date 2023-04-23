@@ -21,7 +21,7 @@ from franka_interface_msgs.msg import SensorDataGroup
 class moveit_planner():
     def __init__(self) -> None: #None means no return value
         moveit_commander.roscpp_initialize(sys.argv)
-        rospy.init_node('move_group_python_interface_tutorial',anonymous=True)
+        # rospy.init_node('move_group_python_interface_tutorial',anonymous=True)
 
         self.robot = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface()
