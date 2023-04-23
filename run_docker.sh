@@ -8,4 +8,5 @@ docker run --privileged --rm -it \
     --volume="$XAUTH:$XAUTH" \
     --network host \
     -v "$(pwd)/src/jenga_packages:/home/ros_ws/src/jenga_packages" \
+    -v "$(pwd)/bags:/home/ros_ws/bags" \
     auto_jenga bash

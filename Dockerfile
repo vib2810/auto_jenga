@@ -31,7 +31,7 @@ RUN apt install ros-noetic-realsense2-camera -y
 RUN /bin/bash -c "source /opt/ros/noetic/setup.bash; cd /home/ros_ws; rosdep install --from-paths src --ignore-src -r -y"
 
 # build workspace
-# RUN /bin/bash -c "source /opt/ros/noetic/setup.bash; cd /home/ros_ws; catkin_make"
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash; cd /home/ros_ws; catkin_make"
 
 RUN echo "source /home/ros_ws/devel/setup.bash" >> ~/.bashrc
 

@@ -1,10 +1,10 @@
 # Goal definition
-string input_text
+bool start
 
 # Result definition
 ---
-bool success
+geometry_msgs/PoseStamped pose
 
 # Feedback definition
 ---
-float32 feedback_progress
+int32 iteration_count
