@@ -22,6 +22,11 @@ RUN mkdir -p /home/ros_ws/src/git_packages
 RUN cd /home/ros_ws/src/git_packages && git clone --recursive https://github.com/iamlab-cmu/frankapy.git \
         && git clone https://github.com/ros-planning/panda_moveit_config.git -b noetic-devel
 
+ARG DEBIAN_FRONTEND=noninteractive
+
+# apt install realsense-ros
+RUN apt install ros-noetic-realsense2-camera -y
+
 #rosdep install on src folder
 RUN /bin/bash -c "source /opt/ros/noetic/setup.bash; cd /home/ros_ws; rosdep install --from-paths src --ignore-src -r -y"
 

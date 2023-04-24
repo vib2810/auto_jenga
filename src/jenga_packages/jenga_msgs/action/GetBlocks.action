@@ -1,0 +1,10 @@
+# Goal definition
+bool start
+
+# Result definition
+---
+geometry_msgs/PoseStamped pose
+
+# Feedback definition
+---
+int32 iteration_count
