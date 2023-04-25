@@ -17,15 +17,16 @@ catkin_package(
 )
 
 ## Specify locations of header files
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-  /usr/local/lib/python3.8/dist-packages/
-  /home/student/auto_jenga/src/jenga_packages/jenga_msgs
-)
+# include_directories(
+#   ${catkin_INCLUDE_DIRS}
+#   /usr/local/lib/python3.8/dist-packages/
+#   /home/student/auto_jenga/src/jenga_packages/jenga_msgs
+# )
 
 ## Add executables
 catkin_install_python(PROGRAMS
   src/rec_data_main.py
+  src/azure_camera_calibration.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
@@ -33,4 +34,7 @@ catkin_install_python(PROGRAMS
 install(DIRECTORY launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
+
+install(DIRECTORY config
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 

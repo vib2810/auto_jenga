@@ -207,13 +207,5 @@ if __name__ == "__main__":
     panda_to_cambase_pose = transform_backward(panda_to_camrgb_pose)
     print("panda_to_cambase_pose:\n {}".format(panda_to_cambase_pose))
     # save panda_to_cambase_pose to yaml file
-    pose_yaml = yaml.dump({'pose': {'position': {'x': panda_to_cambase_pose.position.x,
-                                                 'y': panda_to_cambase_pose.position.y, 
-                                                 'z': panda_to_cambase_pose.position.z}, 
-                                    'orientation': {'x': panda_to_cambase_pose.orientation.x, 
-                                                    'y': panda_to_cambase_pose.orientation.y, 
-                                                    'z': panda_to_cambase_pose.orientation.z, 
-                                                    'w': panda_to_cambase_pose.orientation.w}}})
-    # Save YAML to file
-    with open('/home/ros_ws/src/jenga_packages/block_detector/config/azura_cam.yaml', 'w') as f:
-        f.write(pose_yaml)
+    with open("/home/", "w") as f:
+        yaml.dump(panda_to_cambase_pose, f)

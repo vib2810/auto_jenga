@@ -13,9 +13,19 @@
   <!-- Launch the rec_data node -->
     <!-- <node name="rec_data" pkg="block_detector" type="rec_data_main.py" output="screen"> -->
     <!-- </node> -->
-  <!-- Static tf node -->
-    <node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="
-    0.7043071  -0.12830193  0.91034981
-    0.99875195  0.01069694 -0.04307051  0.02280824
-    /panda_link0 /camera_base" />
+  <!-- read static tf params from config -->
+  <rosparam file="$(find block_detector)/config/azura_cam.yaml" command="load" />
+  <node pkg="tf" type="static_transform_publisher" name="my_static_tf_publisher" 
+    args="$(arg x) $(arg y) $(arg z) $(arg qx) $(arg qy) $(arg qz) $(arg qw) 
+            /panda_link0 /camera_base">
+    <param name="x" value="$(arg pose.position.x)"/>
+    <param name="y" value="$(arg pose.position.y)"/>
+    <param name="y" value="$(arg pose.position.y)"/>
+    <param name="z" value="$(arg pose.position.z)"/>
+    <param name="qx" value="$(arg pose.orientation.x)"/>
+    <param name="qy" value="$(arg pose.orientation.y)"/>
+    <param name="qz" value="$(arg pose.orientation.z)"/>
+    <param name="qw" value="$(arg pose.orientation.w)"/>
+  </node>
+    
 </launch>
