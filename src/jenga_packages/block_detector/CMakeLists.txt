@@ -27,6 +27,7 @@ catkin_package(
 catkin_install_python(PROGRAMS
   src/rec_data_main.py
   src/azure_camera_calibration.py
+  src/tf_publisher.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

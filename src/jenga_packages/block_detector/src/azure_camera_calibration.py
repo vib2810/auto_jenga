@@ -18,6 +18,7 @@ import geometry_msgs.msg
 import scipy.spatial.transform as spt
 import yaml
 import copy
+import rospkg
 
 CONFIG = {
     "calib_block_pre_inserted": True,
@@ -177,30 +178,49 @@ def transform_backward(panda_to_camrgb_pose):
     panda_to_cambase_pose = transformation_matrix_to_pose(panda_to_cambase_mat)
     return panda_to_cambase_pose
 
+def static_tf_broadcaster(static_tf_params):
+    static_transformStamped = geometry_msgs.msg.TransformStamped()
+    static_transformStamped.header.stamp = rospy.Time.now()
+    static_transformStamped.header.frame_id = "panda_link0"
+    static_transformStamped.child_frame_id =  "/camera_base"
+    static_transformStamped.transform.translation.x = static_tf_params["pose"]['position']['x']
+    static_transformStamped.transform.translation.y = static_tf_params["pose"]['position']['y']
+    static_transformStamped.transform.translation.z = static_tf_params["pose"]['position']['z']
+    static_transformStamped.transform.rotation.x = static_tf_params["pose"]['orientation']['x']
+    static_transformStamped.transform.rotation.y = static_tf_params["pose"]['orientation']['y']
+    static_transformStamped.transform.rotation.z = static_tf_params["pose"]['orientation']['z']
+    static_transformStamped.transform.rotation.w = static_tf_params["pose"]['orientation']['w']
+
+    # print("Publishing ")
+    static_broadcaster = tf2_ros.StaticTransformBroadcaster()
+    static_broadcaster.sendTransform(static_transformStamped)
+
 if __name__ == "__main__":
     rospy.init_node('tf_listener')
     fa = FrankaArm(init_node=False)
-    fa.reset_joints()
+    # fa.reset_joints()
 
-    if not CONFIG["calib_block_pre_inserted"]:
-        # Open gripper to insert calibration block with aruco marker.
-        fa.open_gripperrobot_base()
-        # You have 3 seconds to insert the calibration block.
-        time.sleep(2)
-        # Close gripper to hold calibration block.
-        fa.close_gripper()
+    # if not CONFIG["calib_block_pre_inserted"]:
+    #     # Open gripper to insert calibration block with aruco marker.
+    #     fa.open_gripperrobot_base()
+    #     # You have 3 seconds to insert the calibration block.
+    #     time.sleep(2)
+    #     # Close gripper to hold calibration block.
+    #     fa.close_gripper()
 
-    # Move gripper to a pose with good visibility in the camera's FOV.
-    rot = np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]])
-    relative_translate_end_effector(fa, x_offset=0.25, duration=3.0)
-    rotate_end_effector(fa, rot, duration=3.0)
+    # # Move gripper to a pose with good visibility in the camera's FOV.
+    # rot = np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]])
+    # relative_translate_end_effector(fa, x_offset=0.25, duration=3.0)
+    # rotate_end_effector(fa, rot, duration=3.0)
 
     # Get end effector pose from franka arm.
     end_effector_pose = fa.get_pose()
     # Offset from end effector pose to the center of the aruco marker on the calibration block.
+    # convert euler to rotation matrix using spt
+    rot_mat = spt.Rotation.from_euler('xyz', [90, 0, 90], degrees=True).as_matrix()
     offset_pose = RigidTransform(
-        translation=np.array([0.0425, 0, -0.01]),
-        rotation=np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]]),
+        translation=np.array([0.015, 0.103, 0.0425]),
+        rotation=rot_mat,
         from_frame="aruco_pose",
         to_frame="franka_tool",
     )
@@ -235,15 +255,30 @@ if __name__ == "__main__":
 
     # transform from camrgb to cambase
     panda_to_cambase_pose = transform_backward(panda_to_camrgb_pose)
-    print("panda_to_cambase_pose:\n {}".format(panda_to_cambase_pose))
     # save panda_to_cambase_pose to yaml file
-    pose_yaml = yaml.dump({'pose': {'position': {'x': panda_to_cambase_pose.position.x,
-                                                 'y': panda_to_cambase_pose.position.y, 
-                                                 'z': panda_to_cambase_pose.position.z}, 
-                                    'orientation': {'x': panda_to_cambase_pose.orientation.x, 
-                                                    'y': panda_to_cambase_pose.orientation.y, 
-                                                    'z': panda_to_cambase_pose.orientation.z, 
-                                                    'w': panda_to_cambase_pose.orientation.w}}})
+    pose_dict = {'pose': {'position': {'x': float(panda_to_cambase_pose.position.x),
+                                                    'y': float(panda_to_cambase_pose.position.y),
+                                                    'z': float(panda_to_cambase_pose.position.z)},
+                        'orientation': {'x': float(panda_to_cambase_pose.orientation.x),
+                                        'y': float(panda_to_cambase_pose.orientation.y),
+                                        'z': float(panda_to_cambase_pose.orientation.z),
+                                        'w': float(panda_to_cambase_pose.orientation.w)}}}
     # Save YAML to file
     with open('/home/ros_ws/src/jenga_packages/block_detector/config/azure_cam.yaml', 'w') as f:
-        f.write(pose_yaml)
+        yaml.dump(pose_dict, f)
+    
+     # Load static transform parameters from YAML file
+    rospack = rospkg.RosPack()
+    static_tf_file = rospack.get_path('block_detector') + '/config/azure_cam.yaml'
+
+    with open(static_tf_file, 'r') as f:
+        static_tf_params = yaml.load(f, Loader=yaml.FullLoader)
+    print(static_tf_params)
+    # Publish static transform message
+    rate = rospy.Rate(1) # 10hz
+    while not rospy.is_shutdown():
+        static_tf_broadcaster(static_tf_params)
+        rate.sleep()
+
+    rospy.spin()
+
