@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
     # Move gripper to a pose with good visibility in the camera's FOV.
     rot = np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]])
-    relative_translate_end_effector(fa, x_offset=0.25, y_offset = 0.1, duration=3.0)
+    relative_translate_end_effector(fa, x_offset=0.25, duration=3.0)
     rotate_end_effector(fa, rot, duration=3.0)
 
     # Get end effector pose from franka arm.
@@ -237,5 +237,13 @@ if __name__ == "__main__":
     panda_to_cambase_pose = transform_backward(panda_to_camrgb_pose)
     print("panda_to_cambase_pose:\n {}".format(panda_to_cambase_pose))
     # save panda_to_cambase_pose to yaml file
-    with open("/home/", "w") as f:
-        yaml.dump(panda_to_cambase_pose, f)
+    pose_yaml = yaml.dump({'pose': {'position': {'x': panda_to_cambase_pose.position.x,
+                                                 'y': panda_to_cambase_pose.position.y, 
+                                                 'z': panda_to_cambase_pose.position.z}, 
+                                    'orientation': {'x': panda_to_cambase_pose.orientation.x, 
+                                                    'y': panda_to_cambase_pose.orientation.y, 
+                                                    'z': panda_to_cambase_pose.orientation.z, 
+                                                    'w': panda_to_cambase_pose.orientation.w}}})
+    # Save YAML to file
+    with open('/home/ros_ws/src/jenga_packages/block_detector/config/azura_cam.yaml', 'w') as f:
+        f.write(pose_yaml)
