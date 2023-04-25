@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-
+import sys
+sys.path.append("/home/ros_ws/src/git_packages/frankapy")
 import rospy
 from geometry_msgs.msg import PoseStamped
 from frankapy import FrankaArm
@@ -7,31 +8,31 @@ from block_pose_planner.srv import *
 
 blocks = [PoseStamped() for i in range(3)]
 blocks[0].header.frame_id = 'panda_link0'
-blocks[0].pose.position.x = 0.507
-blocks[0].pose.position.y = -0.318
-blocks[0].pose.position.z = 0.006
-blocks[0].pose.orientation.x = 0.944
-blocks[0].pose.orientation.y = -0.320
-blocks[0].pose.orientation.z = 0.065
-blocks[0].pose.orientation.w = 0.003
+blocks[0].pose.position.x = 0.3476
+blocks[0].pose.position.y = -0.2658
+blocks[0].pose.position.z = 0.007
+blocks[0].pose.orientation.x = 0.9999
+blocks[0].pose.orientation.y = -0.002
+blocks[0].pose.orientation.z = -0.008
+blocks[0].pose.orientation.w = 0.0039
 
 blocks[1].header.frame_id = 'panda_link0'
-blocks[1].pose.position.x = 0.370
-blocks[1].pose.position.y = -0.238
-blocks[1].pose.position.z = 0.006
-blocks[1].pose.orientation.x = 0.999
-blocks[1].pose.orientation.y = 0.019
-blocks[1].pose.orientation.z = -0.013
-blocks[1].pose.orientation.w = -0.003
+blocks[1].pose.position.x = 0.5937
+blocks[1].pose.position.y = -0.2634
+blocks[1].pose.position.z = 0.007
+blocks[1].pose.orientation.x = 0.885
+blocks[1].pose.orientation.y = 0.4614
+blocks[1].pose.orientation.z = 0.047
+blocks[1].pose.orientation.w = -0.013
 
 blocks[2].header.frame_id = 'panda_link0'
-blocks[2].pose.position.x = 0.603
-blocks[2].pose.position.y = -0.211
-blocks[2].pose.position.z = 0.006
-blocks[2].pose.orientation.x = 0.728
-blocks[2].pose.orientation.y = -0.682
-blocks[2].pose.orientation.z = 0.051
-blocks[2].pose.orientation.w = 0.023
+blocks[2].pose.position.x = 0.3476
+blocks[2].pose.position.y = -0.2658
+blocks[2].pose.position.z = 0.007
+blocks[2].pose.orientation.x = 0.9999
+blocks[2].pose.orientation.y = -0.002
+blocks[2].pose.orientation.z = -0.008
+blocks[2].pose.orientation.w = 0.0039
 
 
 def dummy_client(b_id = 0, l_id = 0):

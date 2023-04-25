@@ -21,7 +21,7 @@ from franka_interface_msgs.msg import SensorDataGroup
 class moveit_planner():
     def __init__(self) -> None: #None means no return value
         moveit_commander.roscpp_initialize(sys.argv)
-        # rospy.init_node('move_group_python_interface_tutorial',anonymous=True)
+        rospy.init_node('move_group_python_interface_tutorial',anonymous=True)
 
         self.robot = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface()
@@ -221,8 +221,8 @@ class moveit_planner():
             pose_goal.orientation.w = 0.020126567105018894
         
         # Convert to moveit pose
-        pose_goal = self.get_moveit_pose_given_frankapy_pose(pose_goal)
         print("Pose Goal: ", pose_goal)
+        pose_goal = self.get_moveit_pose_given_frankapy_pose(pose_goal)
         print("Resetting Joints")
         self.fa.reset_joints()
         plan_pose = self.get_plan_given_pose(pose_goal)
@@ -304,10 +304,10 @@ if __name__ == "__main__":
     # To plan to a joint goal using run_guide_mode, set guided = True
 
     # Test Joint Planning
-    franka_moveit.unit_test_joint(execute=False, guided=False) 
+    # franka_moveit.unit_test_joint(execute=False, guided=False) 
 
     # Test Tool Position Planning
-    # franka_moveit.unittest_pose(execute=True, guided=True)
+    franka_moveit.unit_test_pose(execute=True, guided=True)
 
     # Adding and removing obstacle boxes to planning scene
     # box_pose = geometry_msgs.msg.PoseStamped()
