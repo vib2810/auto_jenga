@@ -14,7 +14,7 @@
     <!-- <node name="rec_data" pkg="block_detector" type="rec_data_main.py" output="screen"> -->
     <!-- </node> -->
   <!-- read static tf params from config -->
-  <rosparam file="$(find block_detector)/config/azura_cam.yaml" command="load" />
+  <rosparam file="$(find block_detector)/config/azura_calib.yaml" command="load" />
   <node pkg="tf" type="static_transform_publisher" name="my_static_tf_publisher" 
     args="$(arg x) $(arg y) $(arg z) $(arg qx) $(arg qy) $(arg qz) $(arg qw) 
             /panda_link0 /camera_base">

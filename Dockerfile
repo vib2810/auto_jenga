@@ -19,7 +19,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 # apt install realsense-ros
 RUN apt install ros-noetic-realsense2-camera -y
 RUN apt update && pip install open3d
-
+RUN apt install ros-noetic-aruco-ros -y
+        
 # mount src folder from desktop to /home/ros_ws/src
 COPY src/jenga_packages /home/ros_ws/src/jenga_packages
 

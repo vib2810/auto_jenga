@@ -245,5 +245,5 @@ if __name__ == "__main__":
                                                     'z': panda_to_cambase_pose.orientation.z, 
                                                     'w': panda_to_cambase_pose.orientation.w}}})
     # Save YAML to file
-    with open('/home/ros_ws/src/jenga_packages/block_detector/config/azura_cam.yaml', 'w') as f:
+    with open('/home/ros_ws/src/jenga_packages/block_detector/config/azure_cam.yaml', 'w') as f:
         f.write(pose_yaml)
