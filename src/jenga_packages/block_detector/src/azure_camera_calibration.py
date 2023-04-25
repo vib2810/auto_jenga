@@ -158,7 +158,7 @@ def transform_backward(panda_to_camrgb_pose):
     tf_buffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tf_buffer)
 
-    rgb_to_cambase = tf_buffer.lookup_transform('rgb_camera_link', 'camera_base', rospy.Time(0), rospy.Duration(1.0))
+    rgb_to_cambase = tf_buffer.lookup_transform('camera_base', 'rgb_camera_link', rospy.Time(0), rospy.Duration(1.0))
     rgb_to_cambase_pose = Pose()
     rgb_to_cambase_pose.position.x = rgb_to_cambase.transform.translation.x
     rgb_to_cambase_pose.position.y = rgb_to_cambase.transform.translation.y
@@ -217,9 +217,10 @@ if __name__ == "__main__":
     end_effector_pose = fa.get_pose()
     # Offset from end effector pose to the center of the aruco marker on the calibration block.
     # convert euler to rotation matrix using spt
-    rot_mat = spt.Rotation.from_euler('xyz', [90, 0, 90], degrees=True).as_matrix()
+    rot_mat = spt.Rotation.from_euler('zyx', [0, 180, 180], degrees=True).as_matrix()
     offset_pose = RigidTransform(
-        translation=np.array([0.015, 0.103, 0.0425]),
+        # translation=np.array([0.015, 0.103, 0.0425]),
+        translation=np.array([0.3, -0.3, -0.35]),
         rotation=rot_mat,
         from_frame="aruco_pose",
         to_frame="franka_tool",
