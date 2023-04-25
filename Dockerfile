@@ -26,7 +26,8 @@ COPY src/jenga_packages /home/ros_ws/src/jenga_packages
 
 RUN mkdir -p /home/ros_ws/src/git_packages 
 RUN cd /home/ros_ws/src/git_packages && git clone --recursive https://github.com/iamlab-cmu/frankapy.git \
-        && git clone https://github.com/ros-planning/panda_moveit_config.git -b noetic-devel
+        && git clone https://github.com/ros-planning/panda_moveit_config.git -b noetic-devel \
+        && git clone https://github.com/IFL-CAMP/easy_handeye
 
 #rosdep install on src folder
 RUN /bin/bash -c "source /opt/ros/noetic/setup.bash; cd /home/ros_ws; rosdep install --from-paths src --ignore-src -r -y"

@@ -14,7 +14,7 @@
     <!-- <node name="rec_data" pkg="block_detector" type="rec_data_main.py" output="screen"> -->
     <!-- </node> -->
   <!-- read static tf params from config -->
-    <node name="rec_data" pkg="block_detector" type="tf_publisher.py" output="screen"> </node>
+    <node name="rec_data" pkg="block_detector" type="easy_tf_publisher.py" output="screen"> </node>
  
     
 </launch>
