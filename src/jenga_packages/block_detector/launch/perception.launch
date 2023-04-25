@@ -11,6 +11,11 @@
   </group>
 
   <!-- Launch the rec_data node -->
-    <node name="rec_data" pkg="block_detector" type="rec_data_main.py" output="screen">
-    </node>
+    <!-- <node name="rec_data" pkg="block_detector" type="rec_data_main.py" output="screen"> -->
+    <!-- </node> -->
+  <!-- Static tf node -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="static_transform_publisher" args="
+    0.7043071  -0.12830193  0.91034981
+    0.99875195  0.01069694 -0.04307051  0.02280824
+    /panda_link0 /camera_base" />
 </launch>

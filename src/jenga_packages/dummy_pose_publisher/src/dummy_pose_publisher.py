@@ -59,6 +59,8 @@ if __name__ == '__main__':
                     block_count += 1
             except rospy.ROSInterruptException:
                 pass
+        
+        print("Layer %d completed" %layer_count)
         block_count = 0
         layer_count += 1
 
