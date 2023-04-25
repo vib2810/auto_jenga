@@ -26,6 +26,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # apt install realsense-ros
 RUN apt install ros-noetic-realsense2-camera -y
+RUN apt update && pip install open3d
 
 #rosdep install on src folder
 RUN /bin/bash -c "source /opt/ros/noetic/setup.bash; cd /home/ros_ws; rosdep install --from-paths src --ignore-src -r -y"

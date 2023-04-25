@@ -1,13 +1,13 @@
 
 
 #ransac params
-depth_threshold: 15
+depth_threshold: 20
 block_height: 15
-log: True
+log: False
 factor_depth: 1000
 
 #crop the table plane. Fixed w.r.t camera frame
-x_min: 200
-x_max: 720
-y_min: 200
-y_max: 640
+x_min: 300
+x_max: 920
+y_min: 350
+y_max: 1020

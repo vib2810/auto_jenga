@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>perception</name>
+  <name>block_detector</name>
   <version>0.0.1</version>
   <description>
-    Jenga Perception
+    Jenga block_detector  
   </description>
 
   <maintainer email="vib2810@gmail.com">Vibhakar Mohta</maintainer>
@@ -14,10 +14,13 @@
   <build_depend>rospy</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>jenga_msgs</build_depend>
+  <!-- <build_depend>open3d</build_depend> -->
 
   <exec_depend>rospy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>jenga_msgs</exec_depend>
+  <!-- <exec_depend>open3d</exec_depend>
+   -->
 
   <export>
     <build_type>catkin</build_type>

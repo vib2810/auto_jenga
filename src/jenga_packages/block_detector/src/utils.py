@@ -15,7 +15,7 @@ from scipy.cluster.vq import kmeans2
 
 """Utility functions for implementing ransac and block detection using Open CV"""
 
-class CameraInfo_obj():
+class CameraInfo_obj:
     """ Camera intrisics for point cloud creation. """
     def __init__(self, width, height, fx, fy, cx, cy, scale):
         self.width = width
@@ -35,9 +35,8 @@ def plot(image,type="normal",title="Image"):
         cv2.waitKey(3)
         # cv2.createTrackbar('slider', title, 15, 70, hsv_tuning)
 
-    else:
-        cv2.imshow(title, image)
-        cv2.waitKey(3)
+    cv2.imshow(title, image)
+    cv2.waitKey(3)
 
 def opening_morphology(image,kernel_size=5):
     kernel = np.ones((kernel_size,kernel_size),np.uint8)
@@ -60,12 +59,16 @@ def preprocess_image(color_img:np.ndarray=None,depth_img:np.ndarray=None,block_h
     depth_img_cpy = depth_img.copy()
     color_img_cpy = color_img_cpy[x_min:x_max,y_min:y_max] #crop the image
     depth_img_cpy = depth_img_cpy[x_min:x_max,y_min:y_max]
+
+    print (depth_img_cpy.min(),depth_img_cpy.max())
     depth_img_cpy[depth_img_cpy<depth_threshold]=depth_img_cpy.max() #filter erroenous depth values
 
     depth_mask = np.zeros_like(depth_img_cpy)
     min_depth = depth_img_cpy.min()
+    print("min_depth=",min_depth)
     depth_mask[np.logical_and(depth_img_cpy>min_depth,depth_img_cpy<min_depth+block_height)]=255 #create a mask for the top layer block
     depth_mask=depth_mask.astype(np.uint8)
+    print("depth_mask sum=",depth_mask.sum()//255)
     depth_mask = opening_morphology(depth_mask)
 
     return color_img_cpy, depth_img_cpy,depth_mask
@@ -104,7 +107,7 @@ def draw_harris_corners(color_img,depth_mask):
     dst = cv2.dilate(dst,None)
     image = color_img.copy()
     image[dst>0.01*dst.max()]=[0,0,255]
-    self.plot(image,title="Harris Corners")
+    plot(image,title="Harris Corners")
 
     return image
 
