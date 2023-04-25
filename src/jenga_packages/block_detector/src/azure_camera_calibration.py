@@ -4,10 +4,10 @@ import time
 import numpy as np
 import rospy
 from autolab_core import RigidTransform
+import sys
+sys.path.append("/home/ros_ws/src/git_packages/frankapy")
 from frankapy import FrankaArm
 from geometry_msgs.msg import Pose
-from move_arm import relative_translate_end_effector, rotate_end_effector
-from utils import average_rigid_transforms, get_calib_file_path
 import rospy
 import tf2_ros
 from tf import transformations
@@ -91,6 +91,36 @@ def rotate_end_effector(
         verbose=verbose,
     )
 
+def average_rigid_transforms(rigid_transforms):
+    num_transforms = len(rigid_transforms)
+    if num_transforms == 0:
+        return None
+
+    # Define lists to store the translation and rotation components of each transform
+    t_vals = []
+    R_vals = []
+    from_frames = set()
+    to_frames = set()
+
+    # Iterate over each transform and append its components to the corresponding list
+    for transform in rigid_transforms:
+        t_vals.append(transform.translation)
+        R_vals.append(transform.rotation)
+        from_frames.add(transform.from_frame)
+        to_frames.add(transform.to_frame)
+    
+    assert len(from_frames) == 1
+    assert len(to_frames) == 1
+
+    # Compute the average of the translation and rotation components
+    avg_t = np.mean(t_vals, axis=0)
+    avg_R = np.mean(R_vals, axis=0)
+
+    # Create a new RigidTransform with the averaged translation and rotation components
+    avg_transform = RigidTransform(avg_R, avg_t, from_frame=list(from_frames)[0], to_frame=list(to_frames)[0])
+
+    return avg_transform
+
 def pose_to_transformation_matrix(pose):
     """
     Converts geometry_msgs/Pose to a 4x4 transformation matrix
@@ -162,7 +192,7 @@ if __name__ == "__main__":
 
     # Move gripper to a pose with good visibility in the camera's FOV.
     rot = np.array([[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]])
-    relative_translate_end_effector(fa, x_offset=0.25, duration=3.0)
+    relative_translate_end_effector(fa, x_offset=0.25, y_offset = 0.1, duration=3.0)
     rotate_end_effector(fa, rot, duration=3.0)
 
     # Get end effector pose from franka arm.

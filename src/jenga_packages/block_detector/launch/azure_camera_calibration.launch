@@ -23,6 +23,6 @@
     </node>
 
     <!-- Launch azure_camera_calibration.py -->
-    <node pkg="block_detector" type="azure_camera_calibration" name="azure_camera_calibration" output="screen">
+    <node pkg="block_detector" type="azure_camera_calibration.py" name="azure_camera_calibration" output="screen">
     </node>
 </launch>
