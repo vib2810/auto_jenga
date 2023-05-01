@@ -1,0 +1,57 @@
+<launch>
+  <!-- (start your robot's MoveIt! stack, e.g. include its moveit_planning_execution.launch) -->
+  <!-- (start your tracking system's ROS driver) -->
+
+    <arg name="marker1Id"         default="33"/>
+    <arg name="marker2Id"         default="999"/>
+    <arg name="markerSize"        default="0.04"/>    <!-- in m -->
+    <arg name="dct_normalization" default="False" />
+    <arg name="dct_filter_size"   default="2" />
+    <arg name="marker1_frame"     default="marker_1_frame" />
+    <arg name="marker2_frame"     default="marker_2_frame" />
+
+
+    <node pkg="aruco_ros" type="double" name="aruco_simple">    
+        <remap from="/camera_info" to="/camera/color/camera_info" />
+        <remap from="/image" to="/camera/color/image_raw" />
+        <param name="image_is_rectified" value="True"/>
+        <param name="marker_size" value="$(arg markerSize)"/>
+        <param name="marker_id1" value="$(arg marker1Id)"/>
+        <param name="marker_id2" value="$(arg marker2Id)"/>
+        <param name="normalizeImage" value="$(arg dct_normalization)"/>
+        <param name="dct_components_to_remove" value="$(arg dct_filter_size)"/>
+        <param name="parent_name" value="realsense_rgb_frame"/>
+        <param name="child_name1" value="$(arg marker1_frame)" />
+        <param name="child_name2" value="$(arg marker2_frame)" />
+    </node>
+
+    <include file="$(find manipulation)/launch/demo_frankapy.launch">
+       <arg name="use_rviz" value="false" />
+    </include>
+
+    <!-- launch realsense2_camera with pointcloud -->
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <arg name="enable_pointcloud" value="true"/>
+    </include>
+
+    <include file="$(find easy_handeye)/launch/calibrate.launch">
+        <arg name="eye_on_hand" value="true"/>
+        <arg name="start_rviz" value="false"/>
+
+        <!-- you can choose any identifier, as long as you use the same for publishing the calibration -->
+        <arg name="namespace_prefix" value="my_eih_calib"/>
+
+        <!-- fill in the following parameters according to your robot's published tf frames -->
+        <arg name="robot_base_frame" value="panda_link0"/>
+        <arg name="robot_effector_frame" value="panda_end_effector"/>
+
+        <!-- fill in the following parameters according to your tracking system's published tf frames -->
+        <arg name="tracking_base_frame" value="realsense_rgb_frame"/>
+        <arg name="tracking_marker_frame" value="marker_1_frame"/>
+
+        <arg name="freehand_robot_movement" value="true" />
+    </include>
+
+
+
+</launch>

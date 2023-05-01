@@ -27,9 +27,13 @@ if __name__ == "__main__":
     msg.name = ["panda_joint1", "panda_joint2", "panda_joint3", "panda_joint4", "panda_joint5", "panda_joint6", "panda_joint7", "panda_finger_joint1", "panda_finger_joint2"]
     
     while not rospy.is_shutdown():
-        state = fa.get_joints().tolist()
-        msg.header.stamp = rospy.Time.now()
-        state.append(gripper_width); state.append(gripper_width)
-        msg.position = state
-        pub.publish(msg)
+        try:
+            state = fa.get_joints().tolist()
+            msg.header.stamp = rospy.Time.now()
+            state.append(gripper_width); state.append(gripper_width)
+            msg.position = state
+            pub.publish(msg)
+        except:
+            print("Unable to read robot state")
+            pass
         rate.sleep()

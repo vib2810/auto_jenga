@@ -33,6 +33,8 @@ class moveit_planner():
         self.scene = moveit_commander.PlanningSceneInterface()
         group_name = "panda_arm"
         self.group = moveit_commander.MoveGroupCommander(group_name)
+        self.group.set_planner_id("RRTstarkConfigDefault")
+        self.group.set_planning_time(15)
         self.group.set_end_effector_link("panda_hand")
         self.obs_pub = rospy.Publisher('/planning_scene', PlanningScene, queue_size=10)
 
@@ -306,7 +308,7 @@ def pickup_block(req_pose):
 
     # Add block as obstacle to pick up 
     # x along length, y along width ,z along height - use half the distance accounts for symmetry
-    moveit_handler.add_box(name="pickup_block", pose=req_pose, size=[0.07, 0.01, 0.01])
+    moveit_handler.add_box(name="pickup_block", pose=req_pose, size=[0.025, 0.075, 0.02])
     print(req_pose.pose)
     pose_goal = moveit_handler.get_moveit_pose_given_frankapy_pose(req_pose.pose)
     plan = moveit_handler.get_plan_given_pose(pose_goal)
@@ -324,22 +326,23 @@ def drop_block(block_id, layer_id):
     global moveit_handler
 
     # Hard coded because staging area - need to update when testing with actual limits
-    middle_block_pose_even ={'orientation': np.array([0.0, 0.0, 1.0, 0.0]), 
+    middle_block_pose_even ={'orientation': np.array([0.0, 1.0, 0.0, 0.0]), 
                         'translation': np.array([0.5, 0, 0])}
     middle_block_pose_odd = {'orientation': np.array([0.7071068, 0.0, 0.0, 0.7071068]), 
                         'translation': np.array([0.5, 0, 0])}
     if(layer_id%2 == 0):
         drop_pose_quat = middle_block_pose_even['orientation']
         drop_pose_transl = middle_block_pose_even['translation'] + (1 - block_id%3)*np.array([0.025, 0, 0])
+        block_size = [0.025, 0.075, 0.015]
     else:
         drop_pose_quat = middle_block_pose_odd['orientation']
         drop_pose_transl = middle_block_pose_odd['translation'] + (1 - block_id%3)*np.array([0, 0.025, 0])
-    
+        block_size = [0.075, 0.025, 0.015]
     # pose_to_drop = RigidTransform(rotation=quaternion.as_rotation_matrix(drop_pose_quat), translation = drop_pose_transl, from_frame="franka_tool", to_frame="world")
     
     # fa.goto_pose(pose_to_drop, use_impedance=False, duration=15)
 
-    drop_pose_transl = drop_pose_transl + (2*layer_id+1)*np.array([0, 0, 0.007])
+    drop_pose_transl = drop_pose_transl + (2*layer_id+1)*np.array([0, 0, 0.0075])
     # pose_to_drop_local = RigidTrans form(rotation=quaternion.as_rotation_matrix(drop_pose_quat), translation = drop_pose_local_transl, from_frame="franka_tool", to_frame="world")
     
     goal_pose = PoseStamped()
@@ -357,7 +360,10 @@ def drop_block(block_id, layer_id):
     plan = moveit_handler.get_plan_given_pose(target_pose)
     moveit_handler.execute_plan(plan)
     moveit_handler.fa.open_gripper()
-    moveit_handler.add_box(name="block_"+str(block_id)+"_"+str(layer_id),pose=goal_pose, size=[0.07, 0.02, 0.01])
+    moveit_handler.group.detach_object("pickup_block")
+    moveit_handler.add_box(name="block_"+str(block_id)+"_"+str(layer_id),pose=goal_pose, size=block_size)
+    
+    moveit_handler.reset_joints()
 
     return True
     
@@ -371,7 +377,8 @@ def recv_pose_callback(req):
     req_pose = req.des_pose
     pickup_done = pickup_block(req_pose)
     if(pickup_done):
-        # moveit_handler.remove_box("pickup_block")
+        moveit_handler.group.attach_object("pickup_block", "panda_hand")
+        moveit_handler.remove_box("pickup_block")
         drop_block(req.block_id, req.layer_id)
 
     return block_poseResponse(True)
@@ -386,7 +393,9 @@ if __name__ == '__main__':
     rospy.init_node('move_it_block_pose_planner')
     moveit_handler = moveit_planner()
     table_pose = PoseStamped()
+    wall_right = PoseStamped()
     wall_front = PoseStamped()
+    wall_left = PoseStamped()
 
     table_pose.header.frame_id = 'panda_link0'
     table_pose.pose.position.x = 0
@@ -397,8 +406,17 @@ if __name__ == '__main__':
     table_pose.pose.orientation.y = 0
     table_pose.pose.orientation.z = 0
 
+    wall_right.header.frame_id = 'panda_link0'
+    wall_right.pose.position.x = 0.5
+    wall_right.pose.position.y = 0.3
+    wall_right.pose.position.z = 0.5
+    wall_right.pose.orientation.w = 1
+    wall_right.pose.orientation.x = 0
+    wall_right.pose.orientation.y = 0
+    wall_right.pose.orientation.z = 0
+
     wall_front.header.frame_id = 'panda_link0'
-    wall_front.pose.position.x = 0.82
+    wall_front.pose.position.x = 0.7
     wall_front.pose.position.y = 0
     wall_front.pose.position.z = 0.5
     wall_front.pose.orientation.w = 1
@@ -406,8 +424,20 @@ if __name__ == '__main__':
     wall_front.pose.orientation.y = 0
     wall_front.pose.orientation.z = 0
 
+    wall_left.header.frame_id = 'panda_link0'
+    wall_left.pose.position.x = 0.5
+    wall_left.pose.position.y = -0.4
+    wall_left.pose.position.z = 0.5
+    wall_left.pose.orientation.w = 1
+    wall_left.pose.orientation.x = 0
+    wall_left.pose.orientation.y = 0
+    wall_left.pose.orientation.z = 0
+
+
     moveit_handler.add_box(name='table', pose=table_pose, size=[2, 2, 1])
-    moveit_handler.add_box(name='wall', pose=wall_front, size=[0.05, 2, 1])
+    moveit_handler.add_box(name='wall_right', pose=wall_right, size=[1, 0.01, 1])
+    moveit_handler.add_box(name='wall_front', pose=wall_front, size=[0.01, 1, 1])
+    moveit_handler.add_box(name='wall_left', pose=wall_left, size=[1, 0.01, 1])
     moveit_handler.fa.open_gripper()
     GoToBlockServer()
     

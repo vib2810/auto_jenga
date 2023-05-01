@@ -28,6 +28,7 @@ class moveit_planner():
         group_name = "panda_arm"
         self.group = moveit_commander.MoveGroupCommander(group_name)
         self.group.set_end_effector_link("panda_hand")
+        self.group.set_planner_id('RRTstarkConfigDefault')
         self.obs_pub = rospy.Publisher('/planning_scene', PlanningScene, queue_size=10)
 
         # used to visualize the planned path
