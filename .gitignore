@@ -37,3 +37,5 @@ build/**
 devel/**
 *.pt
 *.bag
+
+__pycache__/**
