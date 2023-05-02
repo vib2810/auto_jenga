@@ -145,11 +145,31 @@ def compute_best_mask(mask_arr:np.ndarray=None,pointcloud=None):
                 curr_dist= np.linalg.norm(centroids[i]-centroids[j])
                 if(curr_dist<dist[i]):
                     dist[i]=curr_dist
-
-    best_mask = mask_arr[np.argmax(dist)]
+    best_mask_id = np.argmax(dist)
+    best_mask = mask_arr[best_mask_id]
     assert best_mask.shape == mask_arr[0].shape, f"best mask shape={best_mask.shape} while mask_arr[0] shape={mask_arr[0].shape}"
     print("best_mask shape=",best_mask.shape)
-    return best_mask
+    return best_mask, best_mask_id
+
+def compute_best_mask_3d(mask_arr:np.ndarray=None,pointcloud=None):
+
+    """Computes the best suited mask for grasping. Finds the most isolated block.
+    Takes O(N^2) time.)"""
+
+    pass
+
+def compute_best_mask_2d(mask_arr:np.ndarray=None,pointcloud=None):
+    """give the first mask that is almost a complete rectangle, find this using eigen values of the covariance matrix"""
+    for mask_id in range(0, mask_arr.shape[0]):
+        mask = mask_arr[mask_id]
+        # get covariance matrix
+        mask = mask.reshape(-1,2)
+        mask = mask.astype(np.float32)
+        mask = mask - np.mean(mask,axis=0)
+        cov = np.cov(mask.T)
+        u,s,v = np.linalg.svd(cov)
+        print("Mask ID: ", mask_id, "Eigen Values: ", s, "Ratio: ", np.sqrt([0]/s[1]) )
+    
 
 def compute_k_means(depth_mask,color_img,num_clusters=4):
 

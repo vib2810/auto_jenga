@@ -76,11 +76,9 @@ class InstanceSegmenter:
         )
       
         self.start()
-
-        ts.registerCallback(self.inference)
+        ts.registerCallback(self.get_images)
 
     def get_images(self, color, depth):
-
         try:
             self.color_img = self.bridge.imgmsg_to_cv2(color, "bgr8")
             self.depth_img = self.bridge.imgmsg_to_cv2(depth, "passthrough")
@@ -112,36 +110,29 @@ class InstanceSegmenter:
         self._result.pose.pose.orientation.w = quat[3]
         
     def start(self):
-
         while not self.obtainedInitialImages and not self.obtainedIntrinsics:
             rospy.logdebug(f"[{rospy.get_name()}] " + " Waiting to start server")
             rospy.sleep(1)
 
         self._as.start()
         rospy.loginfo(f"[{rospy.get_name()}] " + " Grasp Pose Server Started")
-    global called  
-    called = False
-    def inference(self, color, depth):
-        global called
-        if(called==True):
+    
+    # global called  
+    # called = False
+    def inference(self, goal):
+        if(self.obtainedInitialImages==False or self.obtainedIntrinsics==False):
+            rospy.logerr("Initial images or intrinsics not obtained")
+            # set status failed
+            self._as.set_aborted()
             return
-        called = True
-        rospy.loginfo(rospy.get_caller_id() + "Images received!!!")
-        try:
-            color_img = self.bridge.imgmsg_to_cv2(color, "bgr8")
-            depth_img = self.bridge.imgmsg_to_cv2(depth, "passthrough")
-
-        except CvBridgeError as e:
-            print(e)
-
-        #visualize color and depth image
-        # cv2.imshow("color", color_img)
-        # cv2.imshow("depth", depth_img)
-        # cv2.waitKey(0)
+        # global called
+        # if(called==True):
+        #     return
+        # called = True
 
         camera = CameraInfo_obj(
-            depth_img.shape[1],
-            depth_img.shape[0],
+            self.depth_img.shape[1],
+            self.depth_img.shape[0],
             self.intrinsics[0][0],
             self.intrinsics[1][1],
             self.intrinsics[0][2],
@@ -149,18 +140,9 @@ class InstanceSegmenter:
             self.factor_depth,
         )
 
-        print("Depth image before", depth_img.shape)
-        # preprocess image
-        # color_img of size (1280, 720)
-        # center crop to (720, 720)
-        # color_img_cropped = color_img[:, 280:1000, :]
-        # depth_img_cropped = depth_img[:, 280:1000]
-
-        color_img_cropped = color_img
-        depth_img_cropped = depth_img
-
+        # center crop the image
+        color_img_cropped = self.color_img[:, 280:1000, :]
         color_img_ = cv2.resize(color_img_cropped, (640, 640))
-        depth_img_ = cv2.resize(depth_img_cropped, (640, 640))
 
         #Get predictions from YOLO
         self.model.predict(color_img_,conf=0.5)
@@ -168,24 +150,30 @@ class InstanceSegmenter:
         masks_ = results[0].masks.data  # raw masks tensor, (N, H, W) or masks.masks 
         masks_=masks_.to("cpu").numpy()
 
+        #resize the detections onto the original image shape
         masks = []
-        for idx,mask in enumerate(masks_):
+        for idx, mask in enumerate(masks_):
             mask = mask.astype(np.uint8)
-            mask = cv2.resize(mask, (1280, 720))
-            # zero pad on dim 1 to make it (720, 1280)
-            # mask = np.pad(mask, ((0, 0), (280, 280)), "constant", constant_values=0)
+            mask = cv2.resize(mask, (720, 720))
+            mask = np.pad(mask, ((0, 0), (280, 280)), "constant", constant_values=0) # zero padding at the ends
             masks.append(mask)
         
         masks = np.array(masks)
 
         # #compute pcd
-        pcd = create_point_cloud_from_depth_image(depth_img, camera, organized=True)
+        pcd = create_point_cloud_from_depth_image(self.depth_img, camera, organized=True)
         pcd = pcd.astype(np.float32)
 
-        best_mask = compute_best_mask(mask_arr=masks,pointcloud=pcd)
+        best_mask, best_mask_id = compute_best_mask(mask_arr=masks,pointcloud=pcd)
+        print("Best Mask ID: ", best_mask_id)   
+        if(best_mask_id==-1):
+            rospy.logerr("No blocks detected")
+            self._as.set_aborted()
+            return
+        compute_best_mask_2d(masks, pcd)
 
         #find cropped point cloud using best_mask
-        idx =best_mask == 1
+        idx = best_mask == 1
         pcd_cropped = pcd[best_mask == 1, :]
 
         #find centroid and orientation of block
@@ -193,7 +181,6 @@ class InstanceSegmenter:
 
         # adjust for block height
         centroid[2] = centroid[2] + self.block_height / 1000
-
         #publish result
         self.publish_result(centroid,quat)
 
@@ -203,13 +190,12 @@ class InstanceSegmenter:
         angle = (roll,pitch,yaw)
 
         if self.log:
-            print("mask shape=",masks.shape)
-            super_mask = np.zeros((720,1280,3))
+            # print("mask shape=",masks.shape)
+            super_mask = self.color_img.copy().astype(np.int32)
             for mask in masks:
-                #create a super mask
-                super_mask[mask==1,:] = 255
-            super_mask[best_mask==1,:] = [0,255,0]
-
+                super_mask[mask==1,:] += [0,0,50]
+            super_mask[best_mask==1,:] += [0,50,0]
+            super_mask = np.clip(super_mask,0,255).astype(np.uint8)
             plot(super_mask,type="normal",title="Super Mask")
             # plot_pcd(pcd_cropped,centroid = centroid,angle=angle)
 
@@ -219,11 +205,12 @@ class InstanceSegmenter:
         self._as.set_succeeded(self._result)
 
 def main():
-
     try:
         segmenter = InstanceSegmenter()
         rospy.spin()
     except KeyboardInterrupt:
+        # close all windows
+        cv2.destroyAllWindows()
         print("Shutting down")
 
 
