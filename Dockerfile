@@ -22,6 +22,7 @@ RUN apt update && pip install open3d
 RUN apt install ros-noetic-aruco-ros -y
 RUN apt-get update && apt-get install -y python3-pip libopenblas-dev libopenmpi-dev
 RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+RUN pip3 install ultralytics==8.0.28
 
 # mount src folder from desktop to /home/ros_ws/src
 COPY src/jenga_packages /home/ros_ws/src/jenga_packages

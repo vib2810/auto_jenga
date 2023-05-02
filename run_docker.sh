@@ -10,6 +10,7 @@ docker run --privileged --rm -it \
     -v "$(pwd)/src/jenga_packages:/home/ros_ws/src/jenga_packages" \
     -v "$(pwd)/guide_mode.py:/home/ros_ws/guide_mode.py" \
     -v "$(pwd)/bags:/home/ros_ws/bags" \
+    -v "$(pwd)/weights:/home/ros_ws/weights" \
     -v "/dev:/dev" \
     --gpus all \
     auto_jenga bash

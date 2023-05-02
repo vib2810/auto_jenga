@@ -28,6 +28,7 @@ catkin_install_python(PROGRAMS
   src/rec_data_main.py
   src/azure_camera_calibration.py
   src/easy_tf_publisher.py
+  src/block_segmenter.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
