@@ -6,6 +6,7 @@ import numpy as np
 from geometry_msgs.msg import PoseStamped
 from move_it_block_pose_planner.srv import *
 import quaternion
+from autolab_core import RigidTransform
 # 75mm length, 15mm height, 25 mm width
 
 
@@ -24,6 +25,9 @@ from frankapy.proto_utils import sensor_proto2ros_msg, make_sensor_group_msg
 from frankapy.proto import JointPositionSensorMessage, ShouldTerminateSensorMessage
 from franka_interface_msgs.msg import SensorDataGroup
 import copy
+from block_detector import block_segmenter as bs
+import jenga_msgs.action
+import actionlib
 
 class moveit_planner():
     def __init__(self) -> None: #None means no return value
@@ -306,7 +310,7 @@ def hover_block(req_pose):
     global moveit_handler
     print(req_pose.pose)
     hover_pose = copy.deepcopy(req_pose)
-    hover_pose.pose.position.z = hover_pose.pose.position.z + 0.25
+    hover_pose.pose.position.z = hover_pose.pose.position.z + 0.1
 
     pose_goal = moveit_handler.get_moveit_pose_given_frankapy_pose(hover_pose.pose)
     plan = moveit_handler.get_plan_given_pose(pose_goal)
@@ -446,12 +450,44 @@ def add_obstacles(moveit_handler):
     moveit_handler.add_box(name='wall_front', pose=wall_front, size=[0.01, 1, 1])
     moveit_handler.add_box(name='wall_left', pose=wall_left, size=[1, 0.01, 1])
 
+def scan_for_blocks():
+    global action_client
+    global moveit_handler
+
+    cartesian_poses_to_scan = [(0,0,0) for i in range(5)]
+        
+    centroid = (0.5, -0.25, 0.25)
+    delta_xy = [(0,0,0), (-0.1, -0.1, 0), (-0.1, 0.1, 0), (0.1, -0.1, 0), (0.1, 0.1, 0)]
+    orientation = quaternion.as_quat_array(np.array([0,1,0,0]))
+    # Populate scanning poses
+    for i in range(5):
+        cartesian_poses_to_scan = np.array(centroid + delta_xy[i])
+    
+    # Loop over poses and call detect blocks
+    for i in range(5):
+        pose_to_scan = RigidTransform(rotation=quaternion.as_rotation_matrix(orientation), translation = cartesian_poses_to_scan[i], from_frame="franka_tool", to_frame="world")
+        moveit_handler.fa.goto_pose(pose_to_scan)
+        action_client.wait_for_result()
+        if action_client.get_state == actionlib.GoalStatus.ABORTED:
+            # Go to next pose
+            continue
+        else:
+            result = action_client.get_result()
+            return result
+    
+    return False
+
+    # If block found, add to moveIt, else go to second pose
+    # Repeat for 5 points
+    # If still not then reduce height and redo till 0.25
+
 # global states
 curr_block_id = 0
 curr_layer_id = 0
 
 if __name__ == '__main__':
     global moveit_handler
+    global action_client
 
     rospy.init_node('move_it_block_pose_planner')
     
@@ -459,10 +495,21 @@ if __name__ == '__main__':
     moveit_handler = moveit_planner()
     add_obstacles(moveit_handler)
     moveit_handler.fa.open_gripper()
+    action_client = actionlib.SimpleActionClient("grasp_block", jenga_msgs.action.GetBlocks)
+
 
     while not rospy.is_shutdown():
         # Get Block Pose from Perception service
-        des_pose = rospy.ServiceProxy('block_pose', block_pose)
+        
+        des_pose = scan_for_blocks()
+        if(des_pose == False):
+            print("No blocks found lols")
+            break
+        
+        moveit_handler.add_box('pickup_block', des_pose.pose, size=[0.025, 0.075, 0.015])
+        
+
+
 
         # pickup block
         pickup_done = composed_pickup(des_pose)
