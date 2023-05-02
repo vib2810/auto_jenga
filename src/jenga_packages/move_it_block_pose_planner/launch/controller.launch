@@ -1,0 +1,7 @@
+<launch>
+ <include file="$(find manipulation)/launch/demo_frankapy.launch">
+ </include>
+
+  <node name="moveit_block_move" pkg="move_it_block_pose_planner" 
+            type="moveit_block_move.py" output="screen">
+</launch>

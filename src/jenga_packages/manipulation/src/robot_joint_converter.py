@@ -35,5 +35,9 @@ if __name__ == "__main__":
             pub.publish(msg)
         except:
             print("Unable to read robot state")
-            pass
+            exit()
+            try:
+                fa = FrankaArm(init_node = False)
+            except:
+                pass
         rate.sleep()

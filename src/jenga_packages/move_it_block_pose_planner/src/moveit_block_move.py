@@ -23,6 +23,7 @@ from frankapy import FrankaConstants as FC
 from frankapy.proto_utils import sensor_proto2ros_msg, make_sensor_group_msg
 from frankapy.proto import JointPositionSensorMessage, ShouldTerminateSensorMessage
 from franka_interface_msgs.msg import SensorDataGroup
+import copy
 
 class moveit_planner():
     def __init__(self) -> None: #None means no return value
@@ -34,7 +35,6 @@ class moveit_planner():
         group_name = "panda_arm"
         self.group = moveit_commander.MoveGroupCommander(group_name)
         self.group.set_planner_id("RRTstarkConfigDefault")
-        self.group.set_planning_time(15)
         self.group.set_end_effector_link("panda_hand")
         self.obs_pub = rospy.Publisher('/planning_scene', PlanningScene, queue_size=10)
 
@@ -134,7 +134,7 @@ class moveit_planner():
 
         rate = rospy.Rate(50)
         # To ensure skill doesn't end before completing trajectory, make the buffer time much longer than needed
-        self.fa.goto_joints(interpolated_traj[1], duration=5, dynamic=True, buffer_time=20)
+        self.fa.goto_joints(interpolated_traj[1], duration=5, dynamic=True, buffer_time=30, ignore_virtual_walls=True)
         init_time = rospy.Time.now().to_time()
         for i in range(2, interpolated_traj.shape[0]):
             traj_gen_proto_msg = JointPositionSensorMessage(
@@ -302,23 +302,33 @@ class moveit_planner():
     def remove_box(self, name):
         self.scene.remove_world_object(name)
 
-def pickup_block(req_pose):
+def hover_block(req_pose):
+    global moveit_handler
+    print(req_pose.pose)
+    hover_pose = copy.deepcopy(req_pose)
+    hover_pose.pose.position.z = hover_pose.pose.position.z + 0.25
 
+    pose_goal = moveit_handler.get_moveit_pose_given_frankapy_pose(hover_pose.pose)
+    plan = moveit_handler.get_plan_given_pose(pose_goal)
+    print(plan.shape)
+    moveit_handler.execute_plan(plan)   
+    return True
+
+def pickup_block(req_pose):
     global moveit_handler
 
     # Add block as obstacle to pick up 
     # x along length, y along width ,z along height - use half the distance accounts for symmetry
     moveit_handler.add_box(name="pickup_block", pose=req_pose, size=[0.025, 0.075, 0.02])
     print(req_pose.pose)
-    pose_goal = moveit_handler.get_moveit_pose_given_frankapy_pose(req_pose.pose)
-    plan = moveit_handler.get_plan_given_pose(pose_goal)
+    final_pose = moveit_handler.get_moveit_pose_given_frankapy_pose(req_pose.pose)
+    plan = moveit_handler.get_plan_given_pose(final_pose)
+
     print(plan.shape)
 
     # Blocking function
     moveit_handler.execute_plan(plan)   
     moveit_handler.fa.close_gripper()
-    # moveit_handler.reset_joints()
-
     return True
 
 def drop_block(block_id, layer_id):
@@ -356,42 +366,40 @@ def drop_block(block_id, layer_id):
     goal_pose.pose.orientation.y = drop_pose_quat[2]
     goal_pose.pose.orientation.z = drop_pose_quat[3]
 
+    hovered = hover_block(goal_pose.pose)
+    if(not hovered):
+        print("Hover Failed")
+        return False
+
     target_pose = moveit_handler.get_moveit_pose_given_frankapy_pose(goal_pose.pose)
     plan = moveit_handler.get_plan_given_pose(target_pose)
     moveit_handler.execute_plan(plan)
     moveit_handler.fa.open_gripper()
-    moveit_handler.group.detach_object("pickup_block")
     moveit_handler.add_box(name="block_"+str(block_id)+"_"+str(layer_id),pose=goal_pose, size=block_size)
-    
     moveit_handler.reset_joints()
-
     return True
-    
 
 
-def recv_pose_callback(req):
+def composed_pickup(req_pose):
     global fa
     global moveit_handler
 
     print("Received pose information")
-    req_pose = req.des_pose
-    pickup_done = pickup_block(req_pose)
-    if(pickup_done):
-        moveit_handler.group.attach_object("pickup_block", "panda_hand")
-        moveit_handler.remove_box("pickup_block")
-        drop_block(req.block_id, req.layer_id)
+    hover_done = hover_block(req_pose)
+    if(hover_done):
+        pickup_done = pickup_block(req_pose)
+        if(pickup_done):
+            moveit_handler.group.attach_object("pickup_block", "panda_hand")
+            # moveit_handler.remove_box("pickup_block")
+            return True
+        else:
+            print("Pickup failed")
+        return False
+    else:
+        print("Hover failed")
+        return False
 
-    return block_poseResponse(True)
-
-def GoToBlockServer():
-    s = rospy.Service('go_to_block', block_pose, recv_pose_callback)
-    rospy.spin()
-
-if __name__ == '__main__':
-    global moveit_handler
-
-    rospy.init_node('move_it_block_pose_planner')
-    moveit_handler = moveit_planner()
+def add_obstacles(moveit_handler):
     table_pose = PoseStamped()
     wall_right = PoseStamped()
     wall_front = PoseStamped()
@@ -433,19 +441,45 @@ if __name__ == '__main__':
     wall_left.pose.orientation.y = 0
     wall_left.pose.orientation.z = 0
 
-
     moveit_handler.add_box(name='table', pose=table_pose, size=[2, 2, 1])
     moveit_handler.add_box(name='wall_right', pose=wall_right, size=[1, 0.01, 1])
     moveit_handler.add_box(name='wall_front', pose=wall_front, size=[0.01, 1, 1])
     moveit_handler.add_box(name='wall_left', pose=wall_left, size=[1, 0.01, 1])
+
+# global states
+curr_block_id = 0
+curr_layer_id = 0
+
+if __name__ == '__main__':
+    global moveit_handler
+
+    rospy.init_node('move_it_block_pose_planner')
+    
+    # Setup Moveit Handler
+    moveit_handler = moveit_planner()
+    add_obstacles(moveit_handler)
     moveit_handler.fa.open_gripper()
-    GoToBlockServer()
-    
-    # des_pose = RigidTransform(rotation=np.eye(3), translation=np.array([0.4, 0, 0.165]), from_frame="franka_tool", to_frame="world")
-    # current_pose = fa.get_pose()
-    # des_pose = RigidTransform(rotation = np.array([[ 0.99735518,  0.00172061 , 0.07252959], [-0.00637742, -0.99375986,  0.11127286], [ 0.07226846, -0.11144111, -0.99113965]]),
-    #                         #   translation= np.array([ 0.45871361 ,-0.03142103,  0.0412673 ]), 
-    #                           from_frame='franka_tool', to_frame='world')
-    # print(current_pose)
-    # fa.goto_pose(des_pose, use_impedance=False, duration = 10)
-    
+
+    while not rospy.is_shutdown():
+        # Get Block Pose from Perception service
+        des_pose = rospy.ServiceProxy('block_pose', block_pose)
+
+        # pickup block
+        pickup_done = composed_pickup(des_pose)
+        if(not pickup_done):
+            print("Pickup failed")
+            break
+
+        # drop block
+        drop_done = drop_block(curr_block_id, curr_layer_id)
+        if(not drop_done):
+            print("Drop failed")
+            break
+
+        curr_block_id += 1
+        if(curr_block_id == 3):
+            curr_block_id = 0
+            curr_layer_id += 1
+            if(curr_layer_id == 5):
+                print("All blocks placed")
+                break
