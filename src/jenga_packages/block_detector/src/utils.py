@@ -36,7 +36,7 @@ def plot(image,type="normal",title="Image"):
         # cv2.createTrackbar('slider', title, 15, 70, hsv_tuning)
 
     cv2.imshow(title, image)
-    cv2.waitKey(3)
+    cv2.waitKey(100)
 
 def opening_morphology(image,kernel_size=5):
     kernel = np.ones((kernel_size,kernel_size),np.uint8)
@@ -132,9 +132,11 @@ def compute_best_mask(mask_arr:np.ndarray=None,pointcloud=None):
 
     dist=np.ones(mask_arr.shape[0])*1000000
     centroids=[]
+    print(pointcloud.shape)
     for i in range(mask_arr.shape[0]):
-        median = np.median(np.argwhere(mask_arr[i]>0).reshape(-1,2),axis=0)
-        centroids.append(pointcloud[median])
+        median = np.median(np.argwhere(mask_arr[i]>0).reshape(-1,2),axis=0).astype(np.int32)
+        #reverse the order due to inconsistency in numpy and opencv
+        centroids.append(pointcloud[median[0],median[1]])
     centroids = np.array(centroids)
 
     for i in range(mask_arr.shape[0]):
@@ -146,7 +148,7 @@ def compute_best_mask(mask_arr:np.ndarray=None,pointcloud=None):
 
     best_mask = mask_arr[np.argmax(dist)]
     assert best_mask.shape == mask_arr[0].shape, f"best mask shape={best_mask.shape} while mask_arr[0] shape={mask_arr[0].shape}"
-
+    print("best_mask shape=",best_mask.shape)
     return best_mask
 
 def compute_k_means(depth_mask,color_img,num_clusters=4):

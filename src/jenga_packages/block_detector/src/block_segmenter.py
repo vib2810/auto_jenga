@@ -23,8 +23,6 @@ from utils import *
 from utils import CameraInfo_obj
 from scipy.spatial.transform import Rotation as R
 from ultralytics import YOLO
-from PIL import Image
-from geometry_msgs.msg import PoseStamped
 
 """
 Implements a ransac based appraoch for detecting jenga blocks in the image. ROS service to relay the graspable pose of the block.
@@ -50,11 +48,13 @@ class InstanceSegmenter:
         self._result = GetBlocksResult()
 
         self.bridge = CvBridge()
-        self.block_height = 15
         color_topic = rospy.get_param("instance_segmentor/color_topic")
-        depth_topic = "instance_segmentor/depth_topic"
-        intrinsic_topic = "instance_segmentor/intrinsic_topic"
-        checkpoint_path = "instance_segmentor/checkpoint_path"
+        depth_topic = rospy.get_param("instance_segmentor/depth_topic")
+        intrinsic_topic = rospy.get_param("instance_segmentor/intrinsic_topic")
+        checkpoint_path = rospy.get_param("instance_segmentor/checkpoint_path")
+        self.factor_depth = rospy.get_param("instance_segmentor/factor_depth")
+        self.block_height = rospy.get_param("instance_segmentor/block_height")
+        self.log = rospy.get_param("instance_segmentor/log")
 
         self.obtainedInitialImages=False
         self.obtainedIntrinsics=False
@@ -74,6 +74,7 @@ class InstanceSegmenter:
         ts = message_filters.ApproximateTimeSynchronizer(
             [self.color_sub, self.depth_sub], 10, 1
         )
+      
         self.start()
 
         ts.registerCallback(self.inference)
@@ -118,9 +119,13 @@ class InstanceSegmenter:
 
         self._as.start()
         rospy.loginfo(f"[{rospy.get_name()}] " + " Grasp Pose Server Started")
-
+    global called  
+    called = False
     def inference(self, color, depth):
-
+        global called
+        if(called==True):
+            return
+        called = True
         rospy.loginfo(rospy.get_caller_id() + "Images received!!!")
         try:
             color_img = self.bridge.imgmsg_to_cv2(color, "bgr8")
@@ -146,29 +151,41 @@ class InstanceSegmenter:
 
         print("Depth image before", depth_img.shape)
         # preprocess image
-        #resize color image to (640,640)
-        color_img_ = cv2.resize(color_img, (640, 640))
-        depth_img_ = cv2.resize(depth_img, (640, 640))
+        # color_img of size (1280, 720)
+        # center crop to (720, 720)
+        # color_img_cropped = color_img[:, 280:1000, :]
+        # depth_img_cropped = depth_img[:, 280:1000]
+
+        color_img_cropped = color_img
+        depth_img_cropped = depth_img
+
+        color_img_ = cv2.resize(color_img_cropped, (640, 640))
+        depth_img_ = cv2.resize(depth_img_cropped, (640, 640))
 
         #Get predictions from YOLO
         self.model.predict(color_img_,conf=0.5)
-        results = self.model(color_img)
-        results = results.to('cpu')
-        masks = results[0].masks.data  # raw masks tensor, (N, H, W) or masks.masks 
-        masks=masks.to("cpu").numpy()
+        results = self.model(color_img_)
+        masks_ = results[0].masks.data  # raw masks tensor, (N, H, W) or masks.masks 
+        masks_=masks_.to("cpu").numpy()
 
-        for idx,mask in enumerate(masks):
+        masks = []
+        for idx,mask in enumerate(masks_):
             mask = mask.astype(np.uint8)
-            mask = cv2.resize(mask, (depth_img.shape[0], depth_img.shape[1]))
-            masks[idx] = mask
+            mask = cv2.resize(mask, (1280, 720))
+            # zero pad on dim 1 to make it (720, 1280)
+            # mask = np.pad(mask, ((0, 0), (280, 280)), "constant", constant_values=0)
+            masks.append(mask)
         
-        #compute pcd
+        masks = np.array(masks)
+
+        # #compute pcd
         pcd = create_point_cloud_from_depth_image(depth_img, camera, organized=True)
         pcd = pcd.astype(np.float32)
 
         best_mask = compute_best_mask(mask_arr=masks,pointcloud=pcd)
 
         #find cropped point cloud using best_mask
+        idx =best_mask == 1
         pcd_cropped = pcd[best_mask == 1, :]
 
         #find centroid and orientation of block
@@ -186,10 +203,19 @@ class InstanceSegmenter:
         angle = (roll,pitch,yaw)
 
         if self.log:
-            plot_pcd(pcd_cropped,centroid = centroid,angle=angle)
+            print("mask shape=",masks.shape)
+            super_mask = np.zeros((720,1280,3))
+            for mask in masks:
+                #create a super mask
+                super_mask[mask==1,:] = 255
+            super_mask[best_mask==1,:] = [0,255,0]
+
+            plot(super_mask,type="normal",title="Super Mask")
+            # plot_pcd(pcd_cropped,centroid = centroid,angle=angle)
+
             # plot_pcd(pcd)
         
-        #Set action as being completed
+        # Set action as being completed
         self._as.set_succeeded(self._result)
 
 def main():
