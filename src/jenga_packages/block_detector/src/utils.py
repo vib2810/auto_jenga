@@ -11,7 +11,7 @@ from sensor_msgs.msg import CameraInfo
 from rospy.numpy_msg import numpy_msg
 from select import select
 from scipy.cluster.vq import kmeans2
-
+from scipy.spatial.transform import Rotation as R
 
 """Utility functions for implementing ransac and block detection using Open CV"""
 
@@ -73,10 +73,11 @@ def preprocess_image(color_img:np.ndarray=None,depth_img:np.ndarray=None,block_h
 
     return color_img_cpy, depth_img_cpy,depth_mask
 
-def compute_hsv_mask(color_img,lower,upper):
+def compute_hsv_mask(color_img,lower=None,upper=None):
     hsv_image = cv2.cvtColor(color_img, cv2.COLOR_BGR2HSV)
-    mask = mask = cv2.inRange(hsv_image,lower, upper)
-    return mask
+    mask = cv2.inRange(hsv_image,lower, upper)
+    color_mask = cv2.bitwise_and(color_img, color_img, mask=mask)
+    return color_mask,mask
 
 def get_contours(mask,mask_pixels=3250):
 
@@ -182,9 +183,28 @@ def create_geometry_at_points(points):
     return geometries
 
 
-def plot_pcd(points):
+def plot_pcd(points,centroid=None,angle=None):
+
+    geometries=[]
+
+    if angle is not None:
+        roll,pitch,yaw = angle
+
+        #convert roll, pitch,yaw to rotation matrix
+        r = R.from_euler('xyz', [roll, pitch, yaw], degrees=True)
+        rot_matrix = np.array(r.as_matrix())
+        #convert R to numpy array
+        mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.025)
+        mesh_frame.translate(centroid)
+        mesh_frame.rotate(rot_matrix)
+
+    sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.0025)
+    sphere.paint_uniform_color([1, 0, 0])  # Set color to red
+    sphere.translate(centroid)
+
+    geometries.append(sphere)
 
     points = points.reshape((-1,3))
     plane_cloud = o3d.geometry.PointCloud()                 # creating point cloud of plane
     plane_cloud.points = o3d.utility.Vector3dVector(points)
-    o3d.visualization.draw_geometries([plane_cloud])
+    o3d.visualization.draw_geometries([plane_cloud,sphere,mesh_frame])
