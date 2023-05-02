@@ -2,9 +2,9 @@
   <!-- (start your robot's MoveIt! stack, e.g. include its moveit_planning_execution.launch) -->
   <!-- (start your tracking system's ROS driver) -->
 
-    <arg name="marker1Id"         default="33"/>
+    <arg name="marker1Id"         default="11"/>
     <arg name="marker2Id"         default="999"/>
-    <arg name="markerSize"        default="0.04"/>    <!-- in m -->
+    <arg name="markerSize"        default="0.116"/>    <!-- in m -->
     <arg name="dct_normalization" default="False" />
     <arg name="dct_filter_size"   default="2" />
     <arg name="marker1_frame"     default="marker_1_frame" />
