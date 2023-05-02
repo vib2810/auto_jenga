@@ -112,6 +112,43 @@ def draw_harris_corners(color_img,depth_mask):
 
     return image
 
+def compute_pose(pcd_cropped:np.ndarray=None):
+    """Computes the pose of the block"""
+    pcd_cropped = pcd_cropped.reshape(-1,3)
+    centroid = np.mean(pcd_cropped,axis=0)
+    pcd_cropped = pcd_cropped - centroid
+    cov = np.cov(pcd_cropped.T) #covariance matrix dims (3,3)
+    u,s,v = np.linalg.svd(cov)
+    # dims of u, s, v are (3,3), (3,), (3,3)
+    rot = u@v
+    rot = R.from_matrix(rot)
+    rot = rot.as_quat()
+    return centroid,rot
+
+def compute_best_mask(mask_arr:np.ndarray=None,pointcloud=None):
+
+    """Computes the best suited mask for grasping. Finds the most isolated block.
+    Takes O(N^2) time.)"""
+
+    dist=np.ones(mask_arr.shape[0])*1000000
+    centroids=[]
+    for i in range(mask_arr.shape[0]):
+        median = np.median(np.argwhere(mask_arr[i]>0).reshape(-1,2),axis=0)
+        centroids.append(pointcloud[median])
+    centroids = np.array(centroids)
+
+    for i in range(mask_arr.shape[0]):
+        for j in range(mask_arr.shape[0]):
+            if(i!=j):
+                curr_dist= np.linalg.norm(centroids[i]-centroids[j])
+                if(curr_dist<dist[i]):
+                    dist[i]=curr_dist
+
+    best_mask = mask_arr[np.argmax(dist)]
+    assert best_mask.shape == mask_arr[0].shape, f"best mask shape={best_mask.shape} while mask_arr[0] shape={mask_arr[0].shape}"
+
+    return best_mask
+
 def compute_k_means(depth_mask,color_img,num_clusters=4):
 
     # self.num_instances = np.round((depth_mask.sum()/255)/self.mask_pixels)
@@ -185,11 +222,11 @@ def create_geometry_at_points(points):
 
 def plot_pcd(points,centroid=None,angle=None):
 
-    geometries=[]
+    sphere=None
+    mesh_frame=None
 
     if angle is not None:
         roll,pitch,yaw = angle
-
         #convert roll, pitch,yaw to rotation matrix
         r = R.from_euler('xyz', [roll, pitch, yaw], degrees=True)
         rot_matrix = np.array(r.as_matrix())
@@ -198,13 +235,22 @@ def plot_pcd(points,centroid=None,angle=None):
         mesh_frame.translate(centroid)
         mesh_frame.rotate(rot_matrix)
 
-    sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.0025)
-    sphere.paint_uniform_color([1, 0, 0])  # Set color to red
-    sphere.translate(centroid)
-
-    geometries.append(sphere)
+    if(centroid is not None):
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.0025)
+        sphere.paint_uniform_color([1, 0, 0])  # Set color to red
+        sphere.translate(centroid)
 
     points = points.reshape((-1,3))
     plane_cloud = o3d.geometry.PointCloud()                 # creating point cloud of plane
     plane_cloud.points = o3d.utility.Vector3dVector(points)
-    o3d.visualization.draw_geometries([plane_cloud,sphere,mesh_frame])
+
+    if(centroid is not None):
+        if(angle is not None):
+            o3d.visualization.draw_geometries([plane_cloud,sphere,mesh_frame])
+        else:
+            o3d.visualization.draw_geometries([plane_cloud,sphere])
+    else:
+        if(angle is not None):
+            o3d.visualization.draw_geometries([plane_cloud,mesh_frame])
+        else:
+            o3d.visualization.draw_geometries([plane_cloud])

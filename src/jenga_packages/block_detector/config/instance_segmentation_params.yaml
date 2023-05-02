@@ -1,0 +1,7 @@
+
+#topics-realsense
+color_topic: "/camera/color/image_raw"
+depth_topic: "/camera_aligned_depth_to_color/image_raw"
+intrinsic_topic: "/camera_aligned_depth_to_color/camera_info"
+
+checkpoint_path: "/home/ros_ws/src/jenga_packages/block_detector/src/weights/best.pt"

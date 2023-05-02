@@ -6,8 +6,8 @@
     <!-- <node name="rosbag" pkg="rosbag" type="play" args="$(arg bagfile)">
     </node> -->
 
-  <group ns="ransac">
-      <rosparam file="$(find block_detector)/config/ransac_params.yaml" />
+  <group ns="instance_segmentor">
+      <rosparam file="$(find block_detector)/config/instance_segmentation_params.yaml" />
   </group>
     <!-- launch realsense2_camera with pointcloud -->
   <include file="$(find block_detector)/launch/realsense.launch">
