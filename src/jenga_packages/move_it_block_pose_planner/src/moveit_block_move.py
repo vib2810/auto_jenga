@@ -311,10 +311,15 @@ def hover_block(req_pose):
     hover_pose = copy.deepcopy(req_pose)
     hover_pose.pose.position.z = hover_pose.pose.position.z + 0.1
 
-    pose_goal = moveit_handler.get_moveit_pose_given_frankapy_pose(hover_pose.pose)
-    plan = moveit_handler.get_plan_given_pose(pose_goal)
-    print(plan.shape)
-    moveit_handler.execute_plan(plan)   
+    # pose_goal = moveit_handler.get_moveit_pose_given_frankapy_pose(hover_pose.pose)
+    # plan = moveit_handler.get_plan_given_pose(pose_goal)
+    # print(plan.shape)
+    # convert hover_pose to RigidTransform pose
+    hover_pose_quat = quaternion.as_quat_array(np.array([hover_pose.pose.orientation.w, hover_pose.pose.orientation.x, hover_pose.pose.orientation.y, hover_pose.pose.orientation.z]))
+    hover_pose_trans = np.array([hover_pose.pose.position.x, hover_pose.pose.position.y, hover_pose.pose.position.z])
+    hover_pose_fpy = RigidTransform(rotation=quaternion.as_rotation_matrix(hover_pose_quat), translation=hover_pose_trans, from_frame="franka_tool", to_frame="world")
+    moveit_handler.fa.goto_pose(hover_pose_fpy, duration=5)
+    # moveit_handler.execute_plan(plan)   
     return True
 
 def pickup_block(req_pose):
@@ -322,15 +327,18 @@ def pickup_block(req_pose):
 
     # Add block as obstacle to pick up 
     # x along length, y along width ,z along height - use half the distance accounts for symmetry
-    moveit_handler.add_box(name="pickup_block", pose=req_pose, size=[0.025, 0.075, 0.02])
-    print(req_pose.pose)
-    final_pose = moveit_handler.get_moveit_pose_given_frankapy_pose(req_pose.pose)
-    plan = moveit_handler.get_plan_given_pose(final_pose)
-
-    print(plan.shape)
+    # moveit_handler.add_box(name="pickup_block", pose=req_pose, size=[0.02, 0.065, 0.015])
+    # print(req_pose.pose)
+    # final_pose = moveit_handler.get_moveit_pose_given_frankapy_pose(req_pose.pose)
+    # plan = moveit_handler.get_plan_given_pose(final_pose)
+    req_pose_quat = quaternion.as_quat_array(np.array([req_pose.pose.orientation.w, req_pose.pose.orientation.x, req_pose.pose.orientation.y, req_pose.pose.orientation.z]))
+    req_pose_trans = np.array([req_pose.pose.position.x, req_pose.pose.position.y, req_pose.pose.position.z])
+    req_pose_fpy = RigidTransform(rotation = quaternion.as_rotation_matrix(req_pose_quat), translation= req_pose_trans, from_frame="franka_tool", to_frame="world")
+    moveit_handler.fa.goto_pose(req_pose_fpy, duration=5)
+    # print(plan.shape)
 
     # Blocking function
-    moveit_handler.execute_plan(plan)   
+    # moveit_handler.execute_plan(plan)   
     moveit_handler.fa.close_gripper()
     return True
 
@@ -467,12 +475,12 @@ def scan_for_blocks():
     # Loop over poses and call detect blocks
     for i in range(5):
         pose_to_scan = RigidTransform(rotation=quaternion.as_rotation_matrix(orientation), translation = cartesian_poses_to_scan[i], from_frame="franka_tool", to_frame="world")
-        # moveit_handler.fa.goto_pose(pose_to_scan)
+        moveit_handler.fa.goto_pose(pose_to_scan)
         # send goal
         print("Sending Goal")
         goal = GetBlocksGoal(True)
         action_client.send_goal(goal)
-        action_client.wait_for_result(timeout=rospy.Duration(10.0))
+        action_client.wait_for_result()
         if action_client.get_state == actionlib.GoalStatus.ABORTED:
             # Go to next pose
             print("Aborted")
@@ -505,7 +513,7 @@ if __name__ == '__main__':
     for obj_id in moveit_handler.scene.get_known_object_names():
         moveit_handler.scene.remove_world_object(obj_id)
 
-    # moveit_handler.fa.reset_joints()
+    moveit_handler.fa.reset_joints()
     add_obstacles(moveit_handler)
     moveit_handler.fa.open_gripper()
     action_client = actionlib.SimpleActionClient("grasp_pose", GetBlocksAction)

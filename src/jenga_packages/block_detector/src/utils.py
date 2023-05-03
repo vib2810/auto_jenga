@@ -129,9 +129,9 @@ def compute_pose(pcd_cropped:np.ndarray=None):
                                     pose_in_base.pose.orientation.z,
                                     pose_in_base.pose.orientation.w]).as_euler('zyx', degrees=True)
     print("Original Pose: ", yaw, pitch, roll)
-    roll_new = 0
+    roll_new = 180
     pitch_new = 0
-    yaw_new = pitch + 90
+    yaw_new = pitch
     print("New Pose: ", yaw_new, pitch_new, roll_new)
     new_quat = R.from_euler('zyx',[yaw_new, pitch_new, roll_new],degrees=True).as_quat()
     pose_in_base.pose.orientation.x = new_quat[0]

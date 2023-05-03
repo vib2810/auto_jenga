@@ -160,7 +160,7 @@ class InstanceSegmenter:
 
         #find cropped point cloud using best_mask
         idx = best_mask == 1
-        best_mask= cv2.erode(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 5)
+        best_mask= cv2.erode(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 2)
         pcd_cropped = pcd[best_mask == 1, :]
 
         #find centroid and orientation of block
