@@ -25,8 +25,7 @@ from frankapy.proto_utils import sensor_proto2ros_msg, make_sensor_group_msg
 from frankapy.proto import JointPositionSensorMessage, ShouldTerminateSensorMessage
 from franka_interface_msgs.msg import SensorDataGroup
 import copy
-from block_detector import block_segmenter as bs
-import jenga_msgs.action
+from jenga_msgs.msg import GetBlocksAction, GetBlocksResult, GetBlocksGoal
 import actionlib
 
 class moveit_planner():
@@ -445,31 +444,38 @@ def add_obstacles(moveit_handler):
     wall_left.pose.orientation.y = 0
     wall_left.pose.orientation.z = 0
 
-    moveit_handler.add_box(name='table', pose=table_pose, size=[2, 2, 1])
-    moveit_handler.add_box(name='wall_right', pose=wall_right, size=[1, 0.01, 1])
-    moveit_handler.add_box(name='wall_front', pose=wall_front, size=[0.01, 1, 1])
-    moveit_handler.add_box(name='wall_left', pose=wall_left, size=[1, 0.01, 1])
+    # moveit_handler.add_box(name='table', pose=table_pose, size=[2, 2, 1])
+    # moveit_handler.add_box(name='wall_right', pose=wall_right, size=[1, 0.01, 1])
+    # moveit_handler.add_box(name='wall_front', pose=wall_front, size=[0.01, 1, 1])
+    # moveit_handler.add_box(name='wall_left', pose=wall_left, size=[1, 0.01, 1])
 
 def scan_for_blocks():
     global action_client
     global moveit_handler
 
-    cartesian_poses_to_scan = [(0,0,0) for i in range(5)]
+    cartesian_poses_to_scan = []
         
-    centroid = (0.5, -0.25, 0.25)
-    delta_xy = [(0,0,0), (-0.1, -0.1, 0), (-0.1, 0.1, 0), (0.1, -0.1, 0), (0.1, 0.1, 0)]
+    centroid = np.array([0.5, -0.25, 0.25])
+    delta_xy = np.array([[0,0,0], [-0.1, -0.1, 0], [-0.1, 0.1, 0], [0.1, -0.1, 0], [0.1, 0.1, 0]])
     orientation = quaternion.as_quat_array(np.array([0,1,0,0]))
     # Populate scanning poses
     for i in range(5):
-        cartesian_poses_to_scan = np.array(centroid + delta_xy[i])
+        cartesian_poses_to_scan.append(np.array(centroid + delta_xy[i, :]))
+    
+    print(cartesian_poses_to_scan[0].shape)
     
     # Loop over poses and call detect blocks
     for i in range(5):
         pose_to_scan = RigidTransform(rotation=quaternion.as_rotation_matrix(orientation), translation = cartesian_poses_to_scan[i], from_frame="franka_tool", to_frame="world")
-        moveit_handler.fa.goto_pose(pose_to_scan)
-        action_client.wait_for_result()
+        # moveit_handler.fa.goto_pose(pose_to_scan)
+        # send goal
+        print("Sending Goal")
+        goal = GetBlocksGoal(True)
+        action_client.send_goal(goal)
+        action_client.wait_for_result(timeout=rospy.Duration(10.0))
         if action_client.get_state == actionlib.GoalStatus.ABORTED:
             # Go to next pose
+            print("Aborted")
             continue
         else:
             result = action_client.get_result()
@@ -489,27 +495,31 @@ if __name__ == '__main__':
     global moveit_handler
     global action_client
 
-    rospy.init_node('move_it_block_pose_planner')
     
+
+    rospy.init_node('move_it_block_pose_planner')
+    print("Node initialized")
     # Setup Moveit Handler
     moveit_handler = moveit_planner()
+    # Resetting all obstacles at start
+    for obj_id in moveit_handler.scene.get_known_object_names():
+        moveit_handler.scene.remove_world_object(obj_id)
+
+    # moveit_handler.fa.reset_joints()
     add_obstacles(moveit_handler)
     moveit_handler.fa.open_gripper()
-    action_client = actionlib.SimpleActionClient("grasp_block", jenga_msgs.action.GetBlocks)
-
-
+    action_client = actionlib.SimpleActionClient("grasp_pose", GetBlocksAction)
+    action_client.wait_for_server()
     while not rospy.is_shutdown():
         # Get Block Pose from Perception service
-        
-        des_pose = scan_for_blocks()
-        if(des_pose == False):
+        des_pose_action_result = scan_for_blocks()
+        if(des_pose_action_result == False):
             print("No blocks found lols")
             break
-        
-        moveit_handler.add_box('pickup_block', des_pose.pose, size=[0.025, 0.075, 0.015])
-        
-
-
+        des_pose = des_pose_action_result.pose
+        print(des_pose)
+        moveit_handler.add_box('pickup_block', des_pose, size=[0.025, 0.075, 0.02])
+        break
 
         # pickup block
         pickup_done = composed_pickup(des_pose)

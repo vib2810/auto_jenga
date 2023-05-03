@@ -33,7 +33,6 @@ Implements a ransac based appraoch for detecting jenga blocks in the image. ROS 
 4) Compute the graspable pose of the block and publish it to the client
 """
 
-
 class InstanceSegmenter:
     def __init__(
         self,
@@ -95,19 +94,6 @@ class InstanceSegmenter:
         self.obtainedIntrinsics = True
         rospy.logdebug(f"[{rospy.get_name()}] " + "Obtained camera intrinsics")
         self.cameraInfoSub.unregister()
-
-    def publish_result(self,centroid,quat):
-
-        #publish results
-        self._result.pose.header.frame_id = "camera_color_optical_frame"
-        self._result.pose.header.stamp = rospy.Time.now()
-        self._result.pose.pose.position.x = centroid[0]
-        self._result.pose.pose.position.y = centroid[1]
-        self._result.pose.pose.position.z = centroid[2]
-        self._result.pose.pose.orientation.x = quat[0]
-        self._result.pose.pose.orientation.y = quat[1]
-        self._result.pose.pose.orientation.z = quat[2]
-        self._result.pose.pose.orientation.w = quat[3]
         
     def start(self):
         while not self.obtainedInitialImages and not self.obtainedIntrinsics:
@@ -174,18 +160,16 @@ class InstanceSegmenter:
 
         #find cropped point cloud using best_mask
         idx = best_mask == 1
+        best_mask= cv2.erode(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 5)
         pcd_cropped = pcd[best_mask == 1, :]
 
         #find centroid and orientation of block
-        centroid,quat = compute_pose(pcd_cropped)
+        block_pose_base = compute_pose(pcd_cropped) #pose stamped
 
-        # adjust for block height
-        centroid[2] = centroid[2] + self.block_height / 1000
-        #publish result
-        self.publish_result(centroid,quat)
+        self._result.pose = block_pose_base
 
         #convert quaternion to roll,pitch,yaw
-        r = R.from_quat(quat)
+        r = R.from_quat([block_pose_base.pose.orientation.x, block_pose_base.pose.orientation.y, block_pose_base.pose.orientation.z, block_pose_base.pose.orientation.w])
         roll, pitch, yaw = r.as_euler('zyx', degrees=True)
         angle = (roll,pitch,yaw)
 

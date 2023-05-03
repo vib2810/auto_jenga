@@ -7,6 +7,8 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   message_generation
+  jenga_msgs
+  actionlib_msgs
 )
 
 add_service_files(
@@ -18,7 +20,8 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   geometry_msgs
-  
+  jenga_msgs
+  actionlib_msgs
 )
 ## Declare a catkin package
 catkin_package()

@@ -9,16 +9,17 @@
   <group ns="instance_segmentor">
       <rosparam file="$(find block_detector)/config/instance_segmentation_params.yaml" />
   </group>
+
     <!-- launch realsense2_camera with pointcloud -->
-  <!-- <include file="$(find block_detector)/launch/realsense.launch">
-  </include> -->
+  <include file="$(find block_detector)/launch/realsense.launch">
+  </include>
 
   <!-- Launch the rec_data node -->
   <node name="block_segmenter" pkg="block_detector" type="block_segmenter.py" output="screen">
   </node>
 
   <!-- read static tf params from config -->
-  <!-- <node name="easy_tf_publisher" pkg="block_detector" type="easy_tf_publisher.py" output="screen"> </node> -->
+  <node name="easy_tf_publisher" pkg="block_detector" type="easy_tf_publisher.py" output="screen"> </node>
  
     
 </launch>
