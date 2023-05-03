@@ -52,44 +52,117 @@ def transformation_matrix_to_pose(trans_mat):
     out_pose.orientation.w = quat[3] 
     return out_pose
 
-def transform_cam_to_base(block_to_opt_pose_stamped: PoseStamped):
+def transform_pcl_to_base(pointcloud: np.ndarray):
+    """
+    Transforms Nx3 pointcloud from camera_color_optical_frame to panda_link0
+    """
+    try:
+        tf_buffer = tf2_ros.Buffer()
+        listener = tf2_ros.TransformListener(tf_buffer)
+
+        # rgb_to_cambase = tf_buffer.lookup_transform('camera_base', 'rgb_camera_link', rospy.Time(0), rospy.Duration(1.0))
+        base_to_opt = tf_buffer.lookup_transform('panda_link0', 'camera_color_optical_frame', rospy.Time(0), rospy.Duration(10.0))
+        base_to_opt_pose = Pose()
+        base_to_opt_pose.position.x = base_to_opt.transform.translation.x
+        base_to_opt_pose.position.y = base_to_opt.transform.translation.y
+        base_to_opt_pose.position.z = base_to_opt.transform.translation.z
+        base_to_opt_pose.orientation.x = base_to_opt.transform.rotation.x
+        base_to_opt_pose.orientation.y = base_to_opt.transform.rotation.y
+        base_to_opt_pose.orientation.z = base_to_opt.transform.rotation.z
+        base_to_opt_pose.orientation.w = base_to_opt.transform.rotation.w
+        
+        base_to_opt_mat = pose_to_transformation_matrix(base_to_opt_pose)
+        pointcloud = np.hstack((pointcloud,np.ones((pointcloud.shape[0],1)))) # shape (N,4)
+        pointcloud = np.dot(base_to_opt_mat,pointcloud.T).T
+        pointcloud = pointcloud[:,:3]
+        return pointcloud
+    except:
+        print("tf lookup failed in block pose conversion")
+        return None
+
+
+def transform_cam_to_base(opt_to_block_pose_stamped: PoseStamped):
     """
     Transforms PoseStamped from camera_color_optical_frame to panda_link0
     """
     try:
-        block_to_opt_pose = copy.deepcopy(block_to_opt_pose_stamped.pose)
+        block_to_opt_pose = copy.deepcopy(opt_to_block_pose_stamped.pose)
         # get ros transform between camera_base and rgb_camera_link using ros tf api
         # create tf subscriber
         tf_buffer = tf2_ros.Buffer()
         listener = tf2_ros.TransformListener(tf_buffer)
 
         # rgb_to_cambase = tf_buffer.lookup_transform('camera_base', 'rgb_camera_link', rospy.Time(0), rospy.Duration(1.0))
-        opt_to_base = tf_buffer.lookup_transform('panda_link0', 'camera_color_optical_frame', rospy.Time(0), rospy.Duration(10.0))
-        opt_to_base_pose = Pose()
-        opt_to_base_pose.position.x = opt_to_base.transform.translation.x
-        opt_to_base_pose.position.y = opt_to_base.transform.translation.y
-        opt_to_base_pose.position.z = opt_to_base.transform.translation.z
-        opt_to_base_pose.orientation.x = opt_to_base.transform.rotation.x
-        opt_to_base_pose.orientation.y = opt_to_base.transform.rotation.y
-        opt_to_base_pose.orientation.z = opt_to_base.transform.rotation.z
-        opt_to_base_pose.orientation.w = opt_to_base.transform.rotation.w
+        base_to_opt = tf_buffer.lookup_transform('panda_link0', 'camera_color_optical_frame', rospy.Time(0), rospy.Duration(10.0))
+        base_to_opt_pose = Pose()
+        base_to_opt_pose.position.x = base_to_opt.transform.translation.x
+        base_to_opt_pose.position.y = base_to_opt.transform.translation.y
+        base_to_opt_pose.position.z = base_to_opt.transform.translation.z
+        base_to_opt_pose.orientation.x = base_to_opt.transform.rotation.x
+        base_to_opt_pose.orientation.y = base_to_opt.transform.rotation.y
+        base_to_opt_pose.orientation.z = base_to_opt.transform.rotation.z
+        base_to_opt_pose.orientation.w = base_to_opt.transform.rotation.w
         
-        opt_to_base_mat = pose_to_transformation_matrix(opt_to_base_pose)
+        base_to_opt_mat = pose_to_transformation_matrix(base_to_opt_pose)
         # print("rgb_to_cambase_mat", rgb_to_cambase_mat)
 
         block_to_opt_mat = pose_to_transformation_matrix(block_to_opt_pose)
         # print("panda_to_camrgb_mat", panda_to_camrgb_mat)
 
-        block_to_base_mat = np.matmul(opt_to_base_mat, block_to_opt_mat)
-        block_to_base_pose = transformation_matrix_to_pose(block_to_base_mat)
+        base_to_block_mat = np.matmul(base_to_opt_mat, block_to_opt_mat)
+        base_to_block_pose = transformation_matrix_to_pose(base_to_block_mat)
 
-        block_to_base_pose_stamp = copy.deepcopy(block_to_opt_pose_stamped)
-        block_to_base_pose_stamp.header.frame_id = "panda_link0"
-        block_to_base_pose_stamp.pose = block_to_base_pose
-        return block_to_base_pose_stamp
+        base_to_block_pose_stamp = copy.deepcopy(opt_to_block_pose_stamped)
+        base_to_block_pose_stamp.header.frame_id = "panda_link0"
+        base_to_block_pose_stamp.pose = base_to_block_pose
+        return base_to_block_pose_stamp
     except:
         print("tf lookup failed in block pose conversion")
         return None
+
+def fit_plane_pcd(pcd: np.ndarray):
+    "Fit plane using RANSAC on Nx3 pointcloud"
+    def fit_plane(points):
+        """Fits a plane to 3 points"""
+        # compute plane normal
+        v1 = points[1] - points[0]
+        v2 = points[2] - points[0]
+        n = np.cross(v1, v2)
+        n = n / np.linalg.norm(n)
+        # compute d
+        d = -np.dot(n, points[0])
+        return np.hstack((n, d))
+    
+    def compute_inliers(plane, pcd, threshold):
+        """Computes the inliers for a plane"""
+        # plane dims (4,)
+        # pcd dims (N,3)
+        # threshold scalar
+
+        # compute distances
+        dist = np.abs(np.dot(pcd, plane[:3]) + plane[3])
+        # compute inliers
+        inliers = np.argwhere(dist < threshold).reshape(-1)
+        return inliers
+    
+    num_itrs = 100
+    threshold = 0.0005
+    best_inliers = []
+    best_plane = None
+    for i in range(num_itrs):
+        # randomly select 3 points
+        idx = np.random.randint(0, pcd.shape[0], 3)
+        points = pcd[idx, :]
+        # fit plane
+        plane = fit_plane(points)
+        # compute inliers
+        inliers = compute_inliers(plane, pcd, threshold)
+        # update best plane
+        if len(inliers) > len(best_inliers):
+            best_inliers = inliers
+            best_plane = plane
+    pcd_plane = pcd[best_inliers, :]
+    return pcd_plane
 
 def compute_pose(pcd_cropped:np.ndarray=None):
     """Computes the pose of the block"""
@@ -98,46 +171,45 @@ def compute_pose(pcd_cropped:np.ndarray=None):
     pcd_cropped = pcd_cropped - centroid
     cov = np.cov(pcd_cropped.T) #covariance matrix dims (3,3)
     u,s,v = np.linalg.svd(cov)
-    rot = R.from_matrix(u)
-    quat = rot.as_quat()
-    #convert quaterion rot to euler angles
-    # rot = R.from_quat(quat)
-    # rot = rot.as_euler('zyx', degrees=True)
-    # rot[0] = 0
-    # rot[2] = 90
-    # yaw, pitch, roll = rot
-    # roll_new = pitch
-    # pitch_new = yaw
-    # yaw_new = roll
-    # print('rot: ',rot)
-    # quat_new = R.from_euler('zyx',[yaw_new, pitch_new, roll_new],degrees=True).as_quat()
-    centroid[2] = centroid[2] + 0.015 # add height of block
-    pose_in_cam = PoseStamped()
-    pose_in_cam.header.stamp = rospy.Time.now()
-    pose_in_cam.header.frame_id = "camera_color_optical_frame"
-    pose_in_cam.pose.position.x = centroid[0]
-    pose_in_cam.pose.position.y = centroid[1]
-    pose_in_cam.pose.position.z = centroid[2]
-    pose_in_cam.pose.orientation.x = quat[0]
-    pose_in_cam.pose.orientation.y = quat[1]
-    pose_in_cam.pose.orientation.z = quat[2]
-    pose_in_cam.pose.orientation.w = quat[3]
+
+    # get 3rd column of u
+    z_axis1 = u[:,2]
+    z_axis2 = -u[:,2]
+
+    #select z axis that is pointing upwards
+    if(z_axis1[2]>0):
+        z_axis = z_axis1
+    else:
+        z_axis = z_axis2
+
+    #get x axis
+    x_axis1 = u[:,0]
+    x_axis2 = -u[:,0]
+
+    # select x axis that is pointing towards global x axis
+    if(x_axis1[0]>0):
+        x_axis = x_axis1
+    else:
+        x_axis = x_axis2
     
-    pose_in_base = transform_cam_to_base(pose_in_cam)
-    yaw, pitch, roll = R.from_quat([pose_in_base.pose.orientation.x,
-                                    pose_in_base.pose.orientation.y,
-                                    pose_in_base.pose.orientation.z,
-                                    pose_in_base.pose.orientation.w]).as_euler('zyx', degrees=True)
-    print("Original Pose: ", yaw, pitch, roll)
-    roll_new = 180
-    pitch_new = 0
-    yaw_new = pitch
-    print("New Pose: ", yaw_new, pitch_new, roll_new)
-    new_quat = R.from_euler('zyx',[yaw_new, pitch_new, roll_new],degrees=True).as_quat()
-    pose_in_base.pose.orientation.x = new_quat[0]
-    pose_in_base.pose.orientation.y = new_quat[1]
-    pose_in_base.pose.orientation.z = new_quat[2]
-    pose_in_base.pose.orientation.w = new_quat[3]
+    # get y axis
+    y_axis = np.cross(z_axis,x_axis)
+    rot_mat = np.vstack((x_axis,y_axis,z_axis)).T
+
+    rot = R.from_matrix(rot_mat)
+    quat = rot.as_quat()
+    centroid[2] = centroid[2] - 0.015/2 # add half height of block
+    
+    pose_in_base = PoseStamped()
+    pose_in_base.header.stamp = rospy.Time.now()
+    pose_in_base.header.frame_id = "panda_link0"
+    pose_in_base.pose.position.x = centroid[0]
+    pose_in_base.pose.position.y = centroid[1]
+    pose_in_base.pose.position.z = centroid[2]
+    pose_in_base.pose.orientation.x = quat[0]
+    pose_in_base.pose.orientation.y = quat[1]
+    pose_in_base.pose.orientation.z = quat[2]
+    pose_in_base.pose.orientation.w = quat[3]
     return pose_in_base
 
 def compute_best_mask(mask_arr:np.ndarray=None,pointcloud=None):
@@ -257,7 +329,7 @@ def create_geometry_at_points(points):
     return geometries
 
 
-def plot_pcd(points,centroid=None,angle=None):
+def plot_pcd(points, centroid=None, angle=None):
 
     sphere=None
     mesh_frame=None

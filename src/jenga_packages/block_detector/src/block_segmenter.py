@@ -23,6 +23,7 @@ from utils import *
 from utils import CameraInfo_obj
 from scipy.spatial.transform import Rotation as R
 from ultralytics import YOLO
+from visualization_msgs.msg import Marker
 
 """
 Implements a ransac based appraoch for detecting jenga blocks in the image. ROS service to relay the graspable pose of the block.
@@ -43,6 +44,8 @@ class InstanceSegmenter:
         self._as = actionlib.SimpleActionServer(
             "grasp_pose", GetBlocksAction, execute_cb=self.inference, auto_start=False
         )
+        self.marker_pub = rospy.Publisher("/visualization_marker", Marker, queue_size=10)
+
 
         self._result = GetBlocksResult()
 
@@ -57,6 +60,7 @@ class InstanceSegmenter:
 
         self.obtainedInitialImages=False
         self.obtainedIntrinsics=False
+        self.marker = None
 
         # write code for message filters subscriber for depth and color images
         self.color_sub = message_filters.Subscriber(color_topic, Image)
@@ -103,18 +107,28 @@ class InstanceSegmenter:
         self._as.start()
         rospy.loginfo(f"[{rospy.get_name()}] " + " Grasp Pose Server Started")
     
-    # global called  
-    # called = False
+
+    def publish_cuboid_marker(self, pose: PoseStamped):
+        # Create a Marker message
+        self.marker = Marker()
+        self.marker.header.frame_id = pose.header.frame_id
+        self.marker.type = Marker.CUBE
+        self.marker.action = Marker.ADD
+        self.marker.pose = pose.pose
+        self.marker.scale.x = 0.075  # Length
+        self.marker.scale.y = 0.025  # Width
+        self.marker.scale.z = 0.015  # Height
+        self.marker.color.r = 1.0
+        self.marker.color.g = 0.0
+        self.marker.color.b = 0.0
+        self.marker.color.a = 0.5
+
     def inference(self, goal):
         if(self.obtainedInitialImages==False or self.obtainedIntrinsics==False):
             rospy.logerr("Initial images or intrinsics not obtained")
             # set status failed
             self._as.set_aborted()
             return
-        # global called
-        # if(called==True):
-        #     return
-        # called = True
 
         camera = CameraInfo_obj(
             self.depth_img.shape[1],
@@ -162,9 +176,11 @@ class InstanceSegmenter:
         idx = best_mask == 1
         best_mask= cv2.erode(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 2)
         pcd_cropped = pcd[best_mask == 1, :]
+        pcl_cropped_base = transform_pcl_to_base(pcd_cropped)
+        pcl_cropped_base = fit_plane_pcd(pcl_cropped_base)
 
         #find centroid and orientation of block
-        block_pose_base = compute_pose(pcd_cropped) #pose stamped
+        block_pose_base = compute_pose(pcl_cropped_base) #pose stamped
 
         self._result.pose = block_pose_base
 
@@ -172,6 +188,7 @@ class InstanceSegmenter:
         r = R.from_quat([block_pose_base.pose.orientation.x, block_pose_base.pose.orientation.y, block_pose_base.pose.orientation.z, block_pose_base.pose.orientation.w])
         roll, pitch, yaw = r.as_euler('zyx', degrees=True)
         angle = (roll,pitch,yaw)
+        centroid = (block_pose_base.pose.position.x,block_pose_base.pose.position.y,block_pose_base.pose.position.z)
 
         if self.log:
             # print("mask shape=",masks.shape)
@@ -181,9 +198,8 @@ class InstanceSegmenter:
             super_mask[best_mask==1,:] += [0,50,0]
             super_mask = np.clip(super_mask,0,255).astype(np.uint8)
             plot(super_mask,type="normal",title="Super Mask")
-            # plot_pcd(pcd_cropped,centroid = centroid,angle=angle)
-
-            # plot_pcd(pcd)
+            self.publish_cuboid_marker(block_pose_base)
+            plot_pcd(pcl_cropped_base, centroid=centroid, angle=angle)
         
         # Set action as being completed
         self._as.set_succeeded(self._result)
@@ -191,7 +207,12 @@ class InstanceSegmenter:
 def main():
     try:
         segmenter = InstanceSegmenter()
-        rospy.spin()
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if(segmenter.marker!=None):
+                segmenter.marker_pub.publish(segmenter.marker)
+            rate.sleep()
+
     except KeyboardInterrupt:
         # close all windows
         cv2.destroyAllWindows()
