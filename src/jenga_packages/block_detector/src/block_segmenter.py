@@ -165,12 +165,15 @@ class InstanceSegmenter:
         
         masks = np.array(masks)
 
-        # #compute pcd
+        # compute pcd
         pcd = create_point_cloud_from_depth_image(self.depth_img, camera, organized=True)
-        pcd = pcd.astype(np.float32)
-        if(goal == True): # find the best block
-            best_mask, best_mask_id = compute_best_mask(mask_arr=masks,pointcloud=pcd)
+        pcd = pcd.astype(np.float32) # HxWx3
+
+        if(goal.find_best == True): # find the best block
+            print("----------------Finding best block----------------")
+            best_mask, best_mask_id, block_pose_base, pcl_cropped_base = compute_best_mask(mask_arr=masks,pointcloud=pcd)
         else:
+            print("----------------Choosing block closest to center----------------")
             # choose the mask with centroid closest to the center of the image
             best_mask_id = -1
             closest_centroid_dist = 1e6
@@ -182,28 +185,19 @@ class InstanceSegmenter:
                     closest_centroid_dist = centroid_dist
                     best_mask_id = i
             best_mask = masks[best_mask_id]
-        print("Mask area:", np.sum(best_mask))
-        if(np.sum(best_mask)<3000):
-            rospy.logerr("Not big enough detected")
-            self._as.set_aborted()
-            return
+            best_mask= cv2.erode(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 4)
+            pcd_cropped = pcd[best_mask == 1, :]
+            pcl_cropped_base = transform_pcl_to_base(pcd_cropped)
+            pcl_cropped_base = fit_plane_pcd(pcl_cropped_base)
+
+            #find centroid and orientation of block
+            block_pose_base = compute_pose(pcl_cropped_base) #pose stamped
 
         print("Best Mask ID: ", best_mask_id)   
         if(best_mask_id==-1):
             rospy.logerr("No blocks detected")
             self._as.set_aborted()
             return
-        compute_best_mask_2d(masks, pcd)
-
-        #find cropped point cloud using best_mask
-        idx = best_mask == 1
-        best_mask= cv2.erode(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 4)
-        pcd_cropped = pcd[best_mask == 1, :]
-        pcl_cropped_base = transform_pcl_to_base(pcd_cropped)
-        pcl_cropped_base = fit_plane_pcd(pcl_cropped_base)
-
-        #find centroid and orientation of block
-        block_pose_base = compute_pose(pcl_cropped_base) #pose stamped
 
         self._result.pose = block_pose_base
 
