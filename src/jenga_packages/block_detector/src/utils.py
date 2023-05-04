@@ -164,7 +164,7 @@ def fit_plane_pcd(pcd: np.ndarray):
     pcd_plane = pcd[best_inliers, :]
     return pcd_plane
 
-def compute_pose(pcd_cropped:np.ndarray=None):
+def compute_pose(pcd_cropped:np.ndarray=None, ret_vecs = False):
     """Computes the pose of the block"""
     pcd_cropped = pcd_cropped.reshape(-1,3)
     centroid = np.mean(pcd_cropped,axis=0)
@@ -210,6 +210,8 @@ def compute_pose(pcd_cropped:np.ndarray=None):
     pose_in_base.pose.orientation.y = quat[1]
     pose_in_base.pose.orientation.z = quat[2]
     pose_in_base.pose.orientation.w = quat[3]
+    if ret_vecs:
+        return pose_in_base, [x_axis, y_axis, z_axis]
     return pose_in_base
 
 def compute_hover_pose(base_to_block_pose: PoseStamped=None):
@@ -237,31 +239,58 @@ def compute_hover_pose(base_to_block_pose: PoseStamped=None):
         print("tf lookup failed in block pose conversion")
         return None
 
-def compute_best_mask(mask_arr:np.ndarray=None,pointcloud=None):
+def compute_best_mask(mask_arr:np.ndarray=None, pointcloud=None):
+    """
+    Computes the best suited mask for grasping. 
+    1. Rrandomly sample a mask
+    2. Find centroid and orientation of block [x= width, y = length, z = height]
+    3. Subtract masked pointcloud from original pointcloud (dialate before subtracting)
+    4. Find the number of points within w, l+2, h of the centroid
+    5. If this number is less than thresh, return this mask
+    6. Else repeat from step 1.
+    7. If no such mask found, return mask_id = -1
+    """
+    n_masks = mask_arr.shape[0]
+    # permute the mask ids
+    mask_id_samples = np.random.permutation(n_masks)
+    for mask_id in mask_id_samples:
+        mask = mask_arr[mask_id]
 
-    """Computes the best suited mask for grasping. Finds the most isolated block.
-    Takes O(N^2) time.)"""
+        # Find Centroid and orientation of block
+        best_mask= cv2.erode(mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 4)
+        if(np.sum(best_mask)<10000):
+            print("Skipping small mask_id=", mask_id)
+            continue
+        pcd_cropped = pointcloud[best_mask == 1, :]
+        pcl_cropped_base = transform_pcl_to_base(pcd_cropped)
+        pcl_cropped_base = fit_plane_pcd(pcl_cropped_base)
 
-    dist=np.ones(mask_arr.shape[0])*1000000
-    centroids=[]
-    print(pointcloud.shape)
-    for i in range(mask_arr.shape[0]):
-        median = np.median(np.argwhere(mask_arr[i]>0).reshape(-1,2),axis=0).astype(np.int32)
-        #reverse the order due to inconsistency in numpy and opencv
-        centroids.append(pointcloud[median[0],median[1]])
-    centroids = np.array(centroids)
+        #find centroid and orientation of block
+        block_pose_base, block_axes = compute_pose(pcl_cropped_base, ret_vecs=True) #pose stamped
 
-    for i in range(mask_arr.shape[0]):
-        for j in range(mask_arr.shape[0]):
-            if(i!=j):
-                curr_dist= np.linalg.norm(centroids[i]-centroids[j])
-                if(curr_dist<dist[i]):
-                    dist[i]=curr_dist
-    best_mask_id = np.argmax(dist)
-    best_mask = mask_arr[best_mask_id]
-    assert best_mask.shape == mask_arr[0].shape, f"best mask shape={best_mask.shape} while mask_arr[0] shape={mask_arr[0].shape}"
-    print("best_mask shape=",best_mask.shape)
-    return best_mask, best_mask_id
+        # Find Pointcloud of remaining blocks
+        best_mask_dialated = cv2.dilate(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 4)
+        pointcloud_rem = copy.deepcopy(pointcloud)
+        pointcloud_rem[best_mask_dialated == 1, :] = 0 # remove the points in current mask
+        pointcloud_rem = pointcloud_rem.reshape(-1,3) #(H*W,3)
+
+        # Find number of points within w, l+2, h of centroid
+        centroid = np.array([block_pose_base.pose.position.x,block_pose_base.pose.position.y,block_pose_base.pose.position.z])
+        x_axis = block_axes[0]; y_axis = block_axes[1]; z_axis = block_axes[2]
+        # get distance from centroid to to all points along x axis
+        x_dists = np.abs(np.dot(pointcloud_rem - centroid, x_axis))
+        y_dists = np.abs(np.dot(pointcloud_rem - centroid, y_axis))
+        z_dists = np.abs(np.dot(pointcloud_rem - centroid, z_axis))
+        # print("x_dists=", np.median(x_dists))
+        # print("y_dists=", np.median(y_dists))
+        # print("z_dists=", np.median(z_dists))
+
+        n_points = np.sum(np.logical_and(np.logical_and(x_dists<0.025/2, y_dists<0.095/2), z_dists<0.075/2))
+        print("Mask ID:", mask_id, ", n_points= ", n_points)
+        if(n_points<0.05*pointcloud.shape[0]):
+            return mask, mask_id, block_pose_base, pcl_cropped_base
+    return None, -1, None, None
+
 
 def compute_best_mask_3d(mask_arr:np.ndarray=None,pointcloud=None):
 
