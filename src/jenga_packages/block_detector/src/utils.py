@@ -242,17 +242,27 @@ def compute_hover_pose(base_to_block_pose: PoseStamped=None):
 def compute_best_mask(mask_arr:np.ndarray=None, pointcloud=None):
     """
     Computes the best suited mask for grasping. 
-    1. Rrandomly sample a mask
+    1. Randomly sample a mask
     2. Find centroid and orientation of block [x= width, y = length, z = height]
     3. Subtract masked pointcloud from original pointcloud (dialate before subtracting)
     4. Find the number of points within w, l+2, h of the centroid
     5. If this number is less than thresh, return this mask
     6. Else repeat from step 1.
     7. If no such mask found, return mask_id = -1
+
+    ### Input
+    -----
+    mask_arr: (N,H,W) block masks
+    pointcloud: (H,W,3)
+
+    ### Output
+    ------
+    mask: (H,W) mask of selected mask
+    mask_id: int, mask id of selected mask
+    block_pose_base: PoseStamped frame of block in panda_link0 \\
+    pcl_cropped_base: (N,3) selected mask pointcloud in base frame
     """
-    n_masks = mask_arr.shape[0]
-    # permute the mask ids
-    mask_id_samples = np.random.permutation(n_masks)
+    mask_id_samples = np.random.permutation(mask_arr.shape[0])
     for mask_id in mask_id_samples:
         mask = mask_arr[mask_id]
 
@@ -281,9 +291,6 @@ def compute_best_mask(mask_arr:np.ndarray=None, pointcloud=None):
         x_dists = np.abs(np.dot(pointcloud_rem - centroid, x_axis))
         y_dists = np.abs(np.dot(pointcloud_rem - centroid, y_axis))
         z_dists = np.abs(np.dot(pointcloud_rem - centroid, z_axis))
-        # print("x_dists=", np.median(x_dists))
-        # print("y_dists=", np.median(y_dists))
-        # print("z_dists=", np.median(z_dists))
 
         n_points = np.sum(np.logical_and(np.logical_and(x_dists<0.025/2, y_dists<0.095/2), z_dists<0.075/2))
         print("Mask ID:", mask_id, ", n_points= ", n_points)
