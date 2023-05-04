@@ -394,12 +394,13 @@ def plot(image,type="normal",title="Image"):
         image = cv2.applyColorMap(cv2.convertScaleAbs(image, alpha=0.03),  cv2.COLORMAP_HOT)
 
     elif(title=="HSV Mask"):
+        cv2.namedWindow(title, cv2.WINDOW_NORMAL)
         cv2.imshow(title, image)
-        cv2.waitKey(3)
-        # cv2.createTrackbar('slider', title, 15, 70, hsv_tuning)
-
-    cv2.imshow(title, image)
-    cv2.waitKey(100)
+        cv2.waitKey(100)
+    else:
+        cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+        cv2.imshow(title, image)
+        cv2.waitKey(100)
 
 def opening_morphology(image,kernel_size=5):
     kernel = np.ones((kernel_size,kernel_size),np.uint8)
