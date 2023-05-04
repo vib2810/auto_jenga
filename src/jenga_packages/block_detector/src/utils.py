@@ -187,7 +187,7 @@ def compute_pose(pcd_cropped:np.ndarray=None):
     y_axis2 = -u[:,0]
 
     # select x axis that is pointing towards global x axis
-    if(y_axis1[0]<0):
+    if(y_axis1[0]>0):
         y_axis = y_axis1
     else:
         y_axis = y_axis2

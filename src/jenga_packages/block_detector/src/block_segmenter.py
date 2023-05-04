@@ -183,7 +183,7 @@ class InstanceSegmenter:
                     best_mask_id = i
             best_mask = masks[best_mask_id]
         print("Mask area:", np.sum(best_mask))
-        if(np.sum(best_mask)<10000):
+        if(np.sum(best_mask)<3000):
             rospy.logerr("Not big enough detected")
             self._as.set_aborted()
             return
