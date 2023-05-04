@@ -182,17 +182,52 @@ def compute_pose(pcd_cropped:np.ndarray=None, ret_vecs = False):
     else:
         z_axis = z_axis2
 
-    #get y axis (its the x axis of the plane as we want to pickup along length of block)
     y_axis1 = u[:,0]
     y_axis2 = -u[:,0]
 
-    # select x axis that is pointing towards global x axis
-    if(y_axis1[0]<0):
-        y_axis = y_axis1
+    got_transform = False
+    try:
+        tf_buffer = tf2_ros.Buffer()
+        listener = tf2_ros.TransformListener(tf_buffer)
+        base_to_end = tf_buffer.lookup_transform('panda_link0', 'panda_end_effector', rospy.Time(0), rospy.Duration(10.0))
+        base_to_end_pose = Pose()
+        base_to_end_pose.position.x = base_to_end.transform.translation.x
+        base_to_end_pose.position.y = base_to_end.transform.translation.y
+        base_to_end_pose.position.z = base_to_end.transform.translation.z
+        base_to_end_pose.orientation.x = base_to_end.transform.rotation.x
+        base_to_end_pose.orientation.y = base_to_end.transform.rotation.y
+        base_to_end_pose.orientation.z = base_to_end.transform.rotation.z
+        base_to_end_pose.orientation.w = base_to_end.transform.rotation.w
+        
+        base_to_end_mat = pose_to_transformation_matrix(base_to_end_pose)
+        y_end_in_base = base_to_end_mat[0:3,1]
+        got_transform = True
+    except:
+        print("tf lookup failed in block pose conversion")
+        got_transform = False
+
+    #get y axis (its the x axis of the plane as we want to pickup along length of block)
+    if(got_transform == False):
+        # select y axis that is pointing away from global x axis
+        if(y_axis1[0]<0):
+            y_axis = y_axis1
+        else:
+            y_axis = y_axis2
     else:
-        y_axis = y_axis2
-    
-    # get y axis
+        # select y axis that results in minimum deviation from y_opt_in_base (min turn angle of gripper)
+        dot_1 = np.dot(y_end_in_base,y_axis1)
+        dot_2 = np.dot(y_end_in_base,y_axis2)
+        print("y axis 1", y_axis1)
+        print("y axis 2", y_axis2)
+        print("y_end_in_base", y_end_in_base)
+        print("dot_1", dot_1)
+        print("dot_2", dot_2)
+        if(dot_1>dot_2):
+            y_axis = y_axis1
+        else:
+            y_axis = y_axis2
+
+    # get x axis
     x_axis = np.cross(y_axis,z_axis)
     rot_mat = np.vstack((x_axis,y_axis,z_axis)).T
 
