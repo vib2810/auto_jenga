@@ -3,7 +3,7 @@ import sys
 import rospy
 # import tf
 import numpy as np
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Pose
 from move_it_block_pose_planner.srv import *
 import quaternion
 from autolab_core import RigidTransform
@@ -307,15 +307,25 @@ class moveit_planner():
     def remove_box(self, name):
         self.scene.remove_world_object(name)
 
+def goto_pose_moveit(pose_goal: PoseStamped):
+    "pose_goal in frame franka_end_effector (frankapy)"
+    pose_goal = moveit_handler.get_moveit_pose_given_frankapy_pose(pose_goal.pose)
+    plan = moveit_handler.get_plan_given_pose(pose_goal)
+    moveit_handler.execute_plan(plan) 
+
+def goto_pose_frankapy(pose_goal: PoseStamped):
+    np_quat = quaternion.as_quat_array(np.array([pose_goal.pose.orientation.w, pose_goal.pose.orientation.x, pose_goal.pose.orientation.y, pose_goal.pose.orientation.z]))
+    local_transl = np.array([pose_goal.pose.position.x, pose_goal.pose.position.y, pose_goal.pose.position.z])
+    local_pose_to_set = RigidTransform(rotation=quaternion.as_rotation_matrix(np_quat), translation = local_transl, from_frame="franka_tool", to_frame="world")
+    moveit_handler.fa.goto_pose(local_pose_to_set, use_impedance=False, duration=7)
+
+
 def hover_block(req_pose, dist=0.1):
     global moveit_handler
     hover_pose = copy.deepcopy(req_pose)
     hover_pose.pose.position.z = hover_pose.pose.position.z + dist
 
-    pose_goal = moveit_handler.get_moveit_pose_given_frankapy_pose(hover_pose.pose)
-    plan = moveit_handler.get_plan_given_pose(pose_goal)
-    print(plan.shape)
-    moveit_handler.execute_plan(plan)   
+    goto_pose_moveit(hover_pose)
 
     # hover_pose_quat = quaternion.as_quat_array(np.array([hover_pose.pose.orientation.w, hover_pose.pose.orientation.x, hover_pose.pose.orientation.y, hover_pose.pose.orientation.z]))
     # hover_pose_trans = np.array([hover_pose.pose.position.x, hover_pose.pose.position.y, hover_pose.pose.position.z])
@@ -327,10 +337,7 @@ def pickup_block(req_pose):
     global moveit_handler
 
     # moveit_handler.add_box(name="pickup_block", pose=req_pose, size=[0.02, 0.065, 0.015])
-    final_pose = moveit_handler.get_moveit_pose_given_frankapy_pose(req_pose.pose)
-    plan = moveit_handler.get_plan_given_pose(final_pose)
-    print(plan.shape)
-    moveit_handler.execute_plan(plan) 
+    goto_pose_moveit(req_pose)
 
     # req_pose_quat = quaternion.as_quat_array(np.array([req_pose.pose.orientation.w, req_pose.pose.orientation.x, req_pose.pose.orientation.y, req_pose.pose.orientation.z]))
     # req_pose_trans = np.array([req_pose.pose.position.x, req_pose.pose.position.y, req_pose.pose.position.z])
@@ -340,60 +347,105 @@ def pickup_block(req_pose):
     moveit_handler.fa.close_gripper()
     return True
 
-def drop_block(block_id, layer_id):
+# def drop_block(block_id, layer_id):
+
+#     global moveit_handler
+
+#     # Hard coded because staging area - need to update when testing with actual limits
+#     middle_block_pose_even ={'orientation': np.array([0.0, 1.0, 0.0, 0.0]), 
+#                         'translation': np.array([0.5, 0, 0.3])}
+#     middle_block_pose_odd = {'orientation': np.array([0, 0.707, 0.707, 0.0]), 
+#                         'translation': np.array([0.5, 0, 0.3])}
+    
+#     drop_pose_quat = quaternion.as_quat_array(middle_block_pose_even['orientation'])
+#     if(layer_id%2 == 0):
+#         drop_pose_quat_local = quaternion.as_quat_array(middle_block_pose_even['orientation'])
+#         drop_pose_transl = middle_block_pose_even['translation'] + (1 - block_id%3)*np.array([0.025, 0, 0])
+#         pose_quat_squeeze = quaternion.as_quat_array(middle_block_pose_odd['orientation'])
+#     else:
+#         drop_pose_quat_local = quaternion.as_quat_array(middle_block_pose_odd['orientation'])
+#         drop_pose_transl = middle_block_pose_odd['translation'] + (1 - block_id%3)*np.array([0, 0.026, 0])
+#         pose_quat_squeeze = quaternion.as_quat_array(middle_block_pose_even['orientation'])
+#     # pose_to_drop = RigidTransform(rotation=quaternion.as_rotation_matrix(drop_pose_quat), translation = drop_pose_transl, from_frame="franka_tool", to_frame="world")
+    
+#     # fa.goto_pose(pose_to_drop, use_impedance=False, duration=15)
+
+#     pose_to_drop = RigidTransform(rotation=quaternion.as_rotation_matrix(drop_pose_quat), translation = drop_pose_transl, from_frame="franka_tool", to_frame="world")
+    
+#     moveit_handler.fa.goto_pose(pose_to_drop, use_impedance=False, duration=15)
+
+#     drop_pose_local_transl = drop_pose_transl - np.array([0, 0, 0.3]) + (2*layer_id+1)*np.array([0,0,0.0075])
+#     pose_to_drop_local = RigidTransform(rotation=quaternion.as_rotation_matrix(drop_pose_quat_local), translation = drop_pose_local_transl, from_frame="franka_tool", to_frame="world")
+#     print(pose_to_drop_local)
+#     moveit_handler.fa.goto_pose(pose_to_drop_local, use_impedance=False, duration=10)
+#     moveit_handler.fa.open_gripper()
+#     if(block_id == 2):
+#         pose_squeeze_transl = middle_block_pose_even['translation'] - np.array([0,0,0.3]) + (2*layer_id+1)*np.array([0,0,0.0075])
+#         pose_to_squeeze_1 = RigidTransform(rotation=quaternion.as_rotation_matrix(pose_quat_squeeze), translation = pose_squeeze_transl + np.array([0, 0, 0.3]), from_frame="franka_tool", to_frame="world")
+#         pose_to_squeeze_2 = RigidTransform(rotation=quaternion.as_rotation_matrix(pose_quat_squeeze), translation = pose_squeeze_transl, from_frame="franka_tool", to_frame="world")
+#         moveit_handler.fa.goto_pose(pose_to_squeeze_1, use_impedance=False, duration=5)
+#         moveit_handler.fa.goto_pose(pose_to_squeeze_2, use_impedance=False, duration=10)
+#         moveit_handler.fa.close_gripper()
+#         moveit_handler.fa.open_gripper()
+
+#     moveit_handler.fa.goto_pose(pose_to_drop, use_impedance=False)
+#     return True
+
+
+def drop_block_moveit(block_id, layer_id):
 
     global moveit_handler
 
     # Hard coded because staging area - need to update when testing with actual limits
     middle_block_pose_even ={'orientation': np.array([0.0, 1.0, 0.0, 0.0]), 
-                        'translation': np.array([0.5, 0, 0])}
-    middle_block_pose_odd = {'orientation': np.array([0.7071068, 0.0, 0.0, 0.7071068]), 
-                        'translation': np.array([0.5, 0, 0])}
+                        'translation': np.array([0.5, 0, 0.3])}
+    middle_block_pose_odd = {'orientation': np.array([0, 0.707, 0.707, 0.0]), 
+                        'translation': np.array([0.5, 0, 0.3])}
+    
+    drop_pose_quat = quaternion.as_quat_array(middle_block_pose_even['orientation'])
     if(layer_id%2 == 0):
-        drop_pose_quat = middle_block_pose_even['orientation']
+        drop_pose_quat_local = middle_block_pose_even['orientation']
         drop_pose_transl = middle_block_pose_even['translation'] + (1 - block_id%3)*np.array([0.025, 0, 0])
-        block_size = [0.025, 0.075, 0.015]
+        pose_quat_squeeze = quaternion.as_quat_array(middle_block_pose_odd['orientation'])
     else:
-        drop_pose_quat = middle_block_pose_odd['orientation']
-        drop_pose_transl = middle_block_pose_odd['translation'] + (1 - block_id%3)*np.array([0, 0.025, 0])
-        block_size = [0.075, 0.025, 0.015]
+        drop_pose_quat_local = middle_block_pose_odd['orientation']
+        drop_pose_transl = middle_block_pose_odd['translation'] + (1 - block_id%3)*np.array([0, 0.026, 0])
+        pose_quat_squeeze = quaternion.as_quat_array(middle_block_pose_even['orientation'])
     # pose_to_drop = RigidTransform(rotation=quaternion.as_rotation_matrix(drop_pose_quat), translation = drop_pose_transl, from_frame="franka_tool", to_frame="world")
     
     # fa.goto_pose(pose_to_drop, use_impedance=False, duration=15)
+    pose_to_drop = PoseStamped()
+    pose_to_drop.header.frame_id = "panda_link0"
+    pose_to_drop.pose.orientation.w = drop_pose_quat_local[0]
+    pose_to_drop.pose.orientation.x = drop_pose_quat_local[1]
+    pose_to_drop.pose.orientation.y = drop_pose_quat_local[2]
+    pose_to_drop.pose.orientation.z = drop_pose_quat_local[3]
+    pose_to_drop.pose.position.x = drop_pose_transl[0]
+    pose_to_drop.pose.position.y = drop_pose_transl[1]
+    pose_to_drop.pose.position.z = drop_pose_transl[2]
 
-    drop_pose_transl = drop_pose_transl + (2*layer_id+1)*np.array([0, 0, 0.0075])
-    # pose_to_drop_local = RigidTrans form(rotation=quaternion.as_rotation_matrix(drop_pose_quat), translation = drop_pose_local_transl, from_frame="franka_tool", to_frame="world")
-    
-    goal_pose = PoseStamped()
-    goal_pose.header.frame_id = "panda_link0" 
-    goal_pose.pose.position.x = drop_pose_transl[0]
-    goal_pose.pose.position.y = drop_pose_transl[1]
-    goal_pose.pose.position.z = drop_pose_transl[2]
+    hover_block(pose_to_drop, 0.2) 
+    goto_pose_moveit(pose_to_drop)
 
-    goal_pose.pose.orientation.w = drop_pose_quat[0]
-    goal_pose.pose.orientation.x = drop_pose_quat[1]
-    goal_pose.pose.orientation.y = drop_pose_quat[2]
-    goal_pose.pose.orientation.z = drop_pose_quat[3]
-
-    hovered = hover_block(goal_pose)
-    if(not hovered):
-        print("Hover Failed")
-        return False
-
-    target_pose = moveit_handler.get_moveit_pose_given_frankapy_pose(goal_pose.pose)
-    plan = moveit_handler.get_plan_given_pose(target_pose)
-    moveit_handler.execute_plan(plan)
     moveit_handler.fa.open_gripper()
-    moveit_handler.add_box(name="block_"+str(block_id)+"_"+str(layer_id),pose=goal_pose, size=block_size)
-    moveit_handler.reset_joints()
-    return True
+    # if(block_id == 2):
+    #     pose_squeeze_transl = middle_block_pose_even['translation'] - np.array([0,0,0.3]) + (2*layer_id+1)*np.array([0,0,0.0075])
+    #     pose_to_squeeze_1 = RigidTransform(rotation=quaternion.as_rotation_matrix(pose_quat_squeeze), translation = pose_squeeze_transl + np.array([0, 0, 0.3]), from_frame="franka_tool", to_frame="world")
+    #     pose_to_squeeze_2 = RigidTransform(rotation=quaternion.as_rotation_matrix(pose_quat_squeeze), translation = pose_squeeze_transl, from_frame="franka_tool", to_frame="world")
+    #     moveit_handler.fa.goto_pose(pose_to_squeeze_1, use_impedance=False, duration=5)
+    #     moveit_handler.fa.goto_pose(pose_to_squeeze_2, use_impedance=False, duration=10)
+    #     moveit_handler.fa.close_gripper()
+    #     moveit_handler.fa.open_gripper()
 
+    # moveit_handler.fa.goto_pose(pose_to_drop, use_impedance=False)
+    return True
 
 def composed_pickup(req_pose):
     global fa
     global moveit_handler
-
+    # req_pose obtained by yolo first attempt
     print("Received pose information")
+    # Go to pose such that camera is above detected centroid with 15 cm offset
     hover_pose = compute_hover_pose(req_pose)
     hover_done = hover_block(hover_pose, 0.15)
     if(hover_done):
@@ -489,12 +541,13 @@ def scan_for_blocks():
         goal = GetBlocksGoal(True)
         action_client.send_goal(goal)
         action_client.wait_for_result()
-        if action_client.get_state == actionlib.GoalStatus.ABORTED:
+        result = action_client.get_result()
+        print(result)
+        if result.pose.header.frame_id == '':
             # Go to next pose
-            print("Aborted")
+            print("No blocks found in this pose")
             continue
         else:
-            result = action_client.get_result()
             return result
     
     return False
@@ -520,12 +573,13 @@ if __name__ == '__main__':
     for obj_id in moveit_handler.scene.get_known_object_names():
         moveit_handler.scene.remove_world_object(obj_id)
 
-    moveit_handler.fa.reset_joints()
     add_obstacles(moveit_handler)
     moveit_handler.fa.open_gripper()
     action_client = actionlib.SimpleActionClient("grasp_pose", GetBlocksAction)
     action_client.wait_for_server()
     while not rospy.is_shutdown():
+        moveit_handler.fa.reset_joints()
+        moveit_handler.fa.open_gripper()
         # Get Block Pose from Perception service
         des_pose_action_result = scan_for_blocks()
         if(des_pose_action_result == False):
@@ -542,8 +596,13 @@ if __name__ == '__main__':
             print("Pickup failed")
             break
 
+        # Checking if block has actually been picked up or not
+        gripper_width = moveit_handler.fa.get_gripper_width()
+        if(gripper_width < 0.07):
+            continue
+
         # drop block
-        drop_done = drop_block(curr_block_id, curr_layer_id)
+        drop_done = drop_block_moveit(curr_block_id, curr_layer_id)
         if(not drop_done):
             print("Drop failed")
             break

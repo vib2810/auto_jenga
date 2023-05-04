@@ -147,6 +147,11 @@ class InstanceSegmenter:
         #Get predictions from YOLO
         self.model.predict(color_img_,conf=0.5)
         results = self.model(color_img_)
+        if(len(results[0].boxes)==0):
+            print("No blocks detected")
+            self._as.set_aborted()
+            return
+        # print(results)
         masks_ = results[0].masks.data  # raw masks tensor, (N, H, W) or masks.masks 
         masks_=masks_.to("cpu").numpy()
 
@@ -177,6 +182,11 @@ class InstanceSegmenter:
                     closest_centroid_dist = centroid_dist
                     best_mask_id = i
             best_mask = masks[best_mask_id]
+        print("Mask area:", np.sum(best_mask))
+        if(np.sum(best_mask)<10000):
+            rospy.logerr("Not big enough detected")
+            self._as.set_aborted()
+            return
 
         print("Best Mask ID: ", best_mask_id)   
         if(best_mask_id==-1):
