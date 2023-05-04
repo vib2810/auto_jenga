@@ -437,6 +437,101 @@ def drop_block_moveit(block_id, layer_id):
 
     return True
 
+def pickup_sweeper_tool():
+    global moveit_handler
+    # Go to pre-defined pose
+    sweeper_dict = {'orientation': np.array([0, 1, 0, 0]), #w, x, y, z
+                    'translation': np.array([0.4844, 0.2709, 0.02246])} # Pre-determined sufficiently far from tower
+    
+    sweeper_pose = PoseStamped()
+    sweeper_pose.header.frame_id = 'panda_link0'
+    sweeper_pose.pose.position.x = sweeper_dict['translation'][0]
+    sweeper_pose.pose.position.y = sweeper_dict['translation'][1]
+    sweeper_pose.pose.position.z = sweeper_dict['translation'][2]
+    sweeper_pose.pose.orientation.w = sweeper_dict['orientation'][0]
+    sweeper_pose.pose.orientation.x = sweeper_dict['orientation'][1]
+    sweeper_pose.pose.orientation.y = sweeper_dict['orientation'][2]
+    sweeper_pose.pose.orientation.z = sweeper_dict['orientation'][3]
+
+    goto_pose_moveit(sweeper_pose, speed=1.5)
+    # close gripper
+    moveit_handler.fa.close_gripper()
+    # if gripper width > thresh -> grip succesful
+    closed_width = moveit_handler.fa.get_gripper_width()
+    if closed_width < 0.002:
+        print("Sweep pickup failed, retrying")
+        moveit_handler.fa.open_gripper()
+        hover_block(sweeper_pose, 0.2)
+        return False
+    else:
+        return True
+    # Remove sweeper as obstacle
+    # else retry
+
+def drop_sweeper_tool():
+    global moveit_handler
+    # Go to predefined pose
+    sweeper_dict = {'orientation': np.array([0, 1, 0, 0]), #w, x, y, z
+                    'translation': np.array([0.4844, 0.2709, 0.02246])} # Pre-determined sufficiently far from tower
+    
+    sweeper_pose = PoseStamped()
+    sweeper_pose.header.frame_id = 'panda_link0'
+    sweeper_pose.pose.position.x = sweeper_dict['translation'][0]
+    sweeper_pose.pose.position.y = sweeper_dict['translation'][1]
+    sweeper_pose.pose.position.z = sweeper_dict['translation'][2]
+    sweeper_pose.pose.orientation.w = sweeper_dict['orientation'][0]
+    sweeper_pose.pose.orientation.x = sweeper_dict['orientation'][1]
+    sweeper_pose.pose.orientation.y = sweeper_dict['orientation'][2]
+    sweeper_pose.pose.orientation.z = sweeper_dict['orientation'][3]
+
+    goto_pose_moveit(sweeper_pose, speed=1.5)
+    # Open gripper
+    moveit_handler.fa.open_gripper()
+    return True
+
+    # Add sweeper as obstacle
+
+
+def reset_tower_sweep(layer_id):
+    global moveit_handler
+
+    # Fixed start point based on layer_id
+    sweep_pose_start_dict = {'orientation': np.array([0, 1, 0, 0.0]), 
+                        'translation': np.array([0.5, 0.05, (2*layer_id+1)*0.0075])}
+    
+    sweep_pose_start = PoseStamped()
+    sweep_pose_start.header.frame_id = 'panda_link0'
+    sweep_pose_start.pose.position.x = sweep_pose_start_dict['translation'][0]
+    sweep_pose_start.pose.position.y = sweep_pose_start_dict['translation'][1]
+    sweep_pose_start.pose.position.z = sweep_pose_start_dict['translation'][2]
+    sweep_pose_start.pose.orientation.w = sweep_pose_start_dict['orientation'][0]
+    sweep_pose_start.pose.orientation.x = sweep_pose_start_dict['orientation'][1]
+    sweep_pose_start.pose.orientation.y = sweep_pose_start_dict['orientation'][2]
+    sweep_pose_start.pose.orientation.z = sweep_pose_start_dict['orientation'][3]
+    
+    # Keep the end point longer away the lower the layer id to help spread out blocks more
+    sweep_pose_end_dict = {'orientation': np.array([0, 1, 0, 0]), 
+                        'translation': np.array([0.5, -0.05*(5-layer_id), (2*layer_id+1)*0.0075])}
+    
+    sweep_pose_end = PoseStamped()
+    sweep_pose_end.header.frame_id = 'panda_link0'
+    sweep_pose_end.pose.position.x = sweep_pose_end_dict['translation'][0]
+    sweep_pose_end.pose.position.y = sweep_pose_end_dict['translation'][1]
+    sweep_pose_end.pose.position.z = sweep_pose_end_dict['translation'][2]
+    sweep_pose_end.pose.orientation.w = sweep_pose_end_dict['orientation'][0]
+    sweep_pose_end.pose.orientation.x = sweep_pose_end_dict['orientation'][1]
+    sweep_pose_end.pose.orientation.y = sweep_pose_end_dict['orientation'][2]
+    sweep_pose_end.pose.orientation.z = sweep_pose_end_dict['orientation'][3]
+    
+    # Using fpy since collisions are needed
+    goto_pose_moveit(sweep_pose_start, speed=1.5)
+    goto_pose_moveit(sweep_pose_end, speed=2.5)
+    
+    return True
+
+    # Reset all obstacles for next run 
+    
+
 def composed_pickup(req_pose):
     global fa
     global moveit_handler
@@ -550,7 +645,7 @@ def scan_for_blocks():
 
 # global states
 curr_block_id = 0
-curr_layer_id = 0
+curr_layer_id = 5
 if __name__ == '__main__':
     global moveit_handler
     global action_client
@@ -567,39 +662,66 @@ if __name__ == '__main__':
     moveit_handler.fa.open_gripper()
     action_client = actionlib.SimpleActionClient("grasp_pose", GetBlocksAction)
     action_client.wait_for_server()
+    # Build flag true - building phase
+    build_flag = True
     while not rospy.is_shutdown():
-        moveit_handler.fa.open_gripper()
-        # Get Block Pose from Perception service
-        des_pose_action_result = scan_for_blocks()
-        if(des_pose_action_result == False):
-            print("No blocks found lols")
-            break
-        des_pose = des_pose_action_result.pose # pose stamped
-        print("Recieved Goal:\n", des_pose)
-        # moveit_handler.add_box('pickup_block', des_pose, size=[0.025, 0.075, 0.015])
-        # break
-
-        # pickup block
-        pickup_done = composed_pickup(des_pose)
-        if(not pickup_done):
-            print("Pickup failed")
-            break
-
-        # Checking if block has actually been picked up or not
-        gripper_width = moveit_handler.fa.get_gripper_width()
-        if(gripper_width < 0.07):
-            continue
-
-        # drop block
-        drop_done = drop_block_moveit(curr_block_id, curr_layer_id)
-        if(not drop_done):
-            print("Drop failed")
-            break
-
-        curr_block_id += 1
-        if(curr_block_id == 3):
-            curr_block_id = 0
-            curr_layer_id += 1
-            if(curr_layer_id == 5):
-                print("All blocks placed")
+        if build_flag and curr_layer_id < 5:
+            moveit_handler.fa.open_gripper()
+            # Get Block Pose from Perception service
+            des_pose_action_result = scan_for_blocks()
+            if(des_pose_action_result == False):
+                print("No blocks found lols")
                 break
+            des_pose = des_pose_action_result.pose # pose stamped
+            print("Recieved Goal:\n", des_pose)
+            # moveit_handler.add_box('pickup_block', des_pose, size=[0.025, 0.075, 0.015])
+            # break
+
+            # pickup block
+            pickup_done = composed_pickup(des_pose)
+            if(not pickup_done):
+                print("Pickup failed")
+                break
+
+            # Checking if block has actually been picked up or not
+            gripper_width = moveit_handler.fa.get_gripper_width()
+            if(gripper_width < 0.07):
+                continue
+
+            # drop block
+            drop_done = drop_block_moveit(curr_block_id, curr_layer_id)
+            if(not drop_done):
+                print("Drop failed")
+                break
+
+            curr_block_id += 1
+            if(curr_block_id == 3):
+                curr_block_id = 0
+                curr_layer_id += 1
+                if(curr_layer_id == 5):
+                    print("All blocks placed")
+                    build_flag = False
+            
+        else:
+            sweeper_picked = False
+            if(curr_layer_id == 5 and not sweeper_picked):
+                sweeper_picked = pickup_sweeper_tool()
+
+            # Retry if sweeper is not picked
+            if not sweeper_picked:
+                continue
+
+            # Sweeper picked - reset tower layer by layer
+            reset_tower_sweep(curr_layer_id)
+            print('Sweeping done of layer %d', curr_layer_id)
+            curr_layer_id -= 1
+            if(curr_layer_id == -1):
+                drop_sweeper_tool()
+                break
+
+            
+        
+        
+
+        
+
