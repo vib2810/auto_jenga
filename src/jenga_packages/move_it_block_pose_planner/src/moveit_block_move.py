@@ -383,18 +383,18 @@ def drop_block_moveit(block_id, layer_id):
 
     # Hard coded because staging area - need to update when testing with actual limits
     middle_block_pose_even ={'orientation': np.array([0.0, 1.0, 0.0, 0.0]), # w, x, y, z
-                        'translation': np.array([0.5, 0, 0])}
+                        'translation': np.array([0.55, 0.1, 0])}
     middle_block_pose_odd = {'orientation': np.array([0, 0.707, 0.707, 0.0]), # w, x, y, z
-                        'translation': np.array([0.5, 0, 0])}
+                        'translation': np.array([0.55, 0.1, 0])}
     
     drop_pose_quat = quaternion.as_quat_array(middle_block_pose_even['orientation'])
     if(layer_id%2 == 0):
         drop_pose_quat_local = middle_block_pose_even['orientation']
-        drop_pose_transl = middle_block_pose_even['translation'] + (1 - block_id%3)*np.array([0.025, 0, 0])
+        drop_pose_transl = middle_block_pose_even['translation'] + (1 - block_id%3)*np.array([0.027, 0, 0])
         pose_quat_squeeze = middle_block_pose_odd['orientation']
     else:
         drop_pose_quat_local = middle_block_pose_odd['orientation']
-        drop_pose_transl = middle_block_pose_odd['translation'] + (1 - block_id%3)*np.array([0, 0.026, 0])
+        drop_pose_transl = middle_block_pose_odd['translation'] + (1 - block_id%3)*np.array([0, 0.027, 0])
         pose_quat_squeeze = middle_block_pose_even['orientation']
     # pose_to_drop = RigidTransform(rotation=quaternion.as_rotation_matrix(drop_pose_quat), translation = drop_pose_transl, from_frame="franka_tool", to_frame="world")
     
@@ -437,6 +437,106 @@ def drop_block_moveit(block_id, layer_id):
 
     return True
 
+def pickup_sweeper_tool():
+    global moveit_handler
+    # Go to pre-defined pose
+    sweeper_dict = {'orientation': np.array([0, 1, 0, 0]), #w, x, y, z
+                    'translation': np.array([0.4844, 0.3709, 0.02246])} # Pre-determined sufficiently far from tower
+    
+    sweeper_pose = PoseStamped()
+    sweeper_pose.header.frame_id = 'panda_link0'
+    sweeper_pose.pose.position.x = sweeper_dict['translation'][0]
+    sweeper_pose.pose.position.y = sweeper_dict['translation'][1]
+    sweeper_pose.pose.position.z = sweeper_dict['translation'][2]
+    sweeper_pose.pose.orientation.w = sweeper_dict['orientation'][0]
+    sweeper_pose.pose.orientation.x = sweeper_dict['orientation'][1]
+    sweeper_pose.pose.orientation.y = sweeper_dict['orientation'][2]
+    sweeper_pose.pose.orientation.z = sweeper_dict['orientation'][3]
+
+    goto_pose_moveit(sweeper_pose, speed=1.5)
+    # close gripper
+    moveit_handler.fa.close_gripper()
+    # if gripper width > thresh -> grip succesful
+    closed_width = moveit_handler.fa.get_gripper_width()
+    if closed_width < 0.003:
+        print("Sweep pickup failed, retrying")
+        moveit_handler.fa.open_gripper()
+        hover_block(sweeper_pose, 0.2)
+        return False
+    else:
+        return True
+    # Remove sweeper as obstacle
+    # else retry
+
+def drop_sweeper_tool():
+    global moveit_handler
+    # Go to predefined pose
+    sweeper_dict = {'orientation': np.array([0, 1, 0, 0]), #w, x, y, z
+                    'translation': np.array([0.4844, 0.3709, 0.02246])} # Pre-determined sufficiently far from tower
+    
+    sweeper_pose = PoseStamped()
+    sweeper_pose.header.frame_id = 'panda_link0'
+    sweeper_pose.pose.position.x = sweeper_dict['translation'][0]
+    sweeper_pose.pose.position.y = sweeper_dict['translation'][1]
+    sweeper_pose.pose.position.z = sweeper_dict['translation'][2]
+    sweeper_pose.pose.orientation.w = sweeper_dict['orientation'][0]
+    sweeper_pose.pose.orientation.x = sweeper_dict['orientation'][1]
+    sweeper_pose.pose.orientation.y = sweeper_dict['orientation'][2]
+    sweeper_pose.pose.orientation.z = sweeper_dict['orientation'][3]
+
+    goto_pose_moveit(sweeper_pose, speed=1.5)
+    # Open gripper
+    moveit_handler.fa.open_gripper()
+    return True
+
+    # Add sweeper as obstacle
+
+
+def reset_tower_sweep(layer_id):
+    global moveit_handler
+
+    # Fixed start point based on layer_id
+    rotation_sign = 1
+    if layer_id%2 == 1:
+        rotation_sign = -1
+
+    sweep_pose_start_dict = {'orientation': np.array([0, -0.9238, rotation_sign*0.3826, 0 ]), 
+                        'translation': np.array([0.55 + (rotation_sign==1)*0.1, 0.175, (2*layer_id+1)*0.0078 + 0.01])}
+    
+    sweep_pose_start = PoseStamped()
+    sweep_pose_start.header.frame_id = 'panda_link0'
+    sweep_pose_start.pose.position.x = sweep_pose_start_dict['translation'][0]
+    sweep_pose_start.pose.position.y = sweep_pose_start_dict['translation'][1]
+    sweep_pose_start.pose.position.z = sweep_pose_start_dict['translation'][2]
+    sweep_pose_start.pose.orientation.w = sweep_pose_start_dict['orientation'][0]
+    sweep_pose_start.pose.orientation.x = sweep_pose_start_dict['orientation'][1]
+    sweep_pose_start.pose.orientation.y = sweep_pose_start_dict['orientation'][2]
+    sweep_pose_start.pose.orientation.z = sweep_pose_start_dict['orientation'][3]
+    
+    # Keep the end point longer away the lower the layer id to help spread out blocks more
+    sweep_pose_end_dict = {'orientation': np.array([0, -0.9238,rotation_sign*0.3826, 0]), 
+                        'translation': np.array([0.65 + (rotation_sign==1)*-0.1, -0.175*(4-layer_id), (2*layer_id+1)*0.0078 + 0.01])}
+    
+    sweep_pose_end = PoseStamped()
+    sweep_pose_end.header.frame_id = 'panda_link0'
+    sweep_pose_end.pose.position.x = sweep_pose_end_dict['translation'][0]
+    sweep_pose_end.pose.position.y = sweep_pose_end_dict['translation'][1]
+    sweep_pose_end.pose.position.z = sweep_pose_end_dict['translation'][2]
+    sweep_pose_end.pose.orientation.w = sweep_pose_end_dict['orientation'][0]
+    sweep_pose_end.pose.orientation.x = sweep_pose_end_dict['orientation'][1]
+    sweep_pose_end.pose.orientation.y = sweep_pose_end_dict['orientation'][2]
+    sweep_pose_end.pose.orientation.z = sweep_pose_end_dict['orientation'][3]
+    
+    # Using fpy since collisions are needed
+    goto_pose_moveit(sweep_pose_start, speed=1.5)
+    goto_pose_moveit(sweep_pose_end, speed=5)
+    goto_pose_moveit(sweep_pose_start, speed=5)
+    
+    return True
+
+    # Reset all obstacles for next run 
+    
+
 def composed_pickup(req_pose):
     global fa
     global moveit_handler
@@ -452,6 +552,8 @@ def composed_pickup(req_pose):
         action_result = action_client.get_result()
         refined_pose = action_result.pose
         print("Got refined pose")
+        if(refined_pose.header.frame_id == ''):
+            return False
         # return False
         # hover over the pose
         pickup_done = hover_block(refined_pose, 0.15, speed = 1.5)
@@ -515,13 +617,13 @@ def add_obstacles(moveit_handler):
     # moveit_handler.add_box(name='wall_front', pose=wall_front, size=[0.01, 1, 1])
     # moveit_handler.add_box(name='wall_left', pose=wall_left, size=[1, 0.01, 1])
 
-def scan_for_blocks():
+def scan_for_blocks(pose_id=0):
     global action_client
     global moveit_handler
 
     cartesian_poses_to_scan = []
         
-    centroid = np.array([0.6, -0.2, 0.2])
+    centroid = np.array([0.55, -0.1, 0.2])
     delta_xy = np.array([[-0.1, -0.1, 0], [-0.1, 0.1, 0], [0,0,0], [0.1, -0.1, 0], [0.1, 0.1, 0]])
     orientation = np.array([0,1,0,0])
     
@@ -530,7 +632,7 @@ def scan_for_blocks():
         cartesian_poses_to_scan.append(np.array(centroid + delta_xy[i, :]))
         
     # Loop over poses and call detect blocks
-    for i in range(5):
+    for i in range(pose_id,5):
         pose_to_scan = get_posestamped(cartesian_poses_to_scan[i], orientation)
         goto_pose_moveit(pose_to_scan, speed=4)
         print("Sending Goal")
@@ -567,39 +669,67 @@ if __name__ == '__main__':
     moveit_handler.fa.open_gripper()
     action_client = actionlib.SimpleActionClient("grasp_pose", GetBlocksAction)
     action_client.wait_for_server()
+    # Build flag true - building phase
+    build_flag = True
+    sweeper_picked = False
+    pose_id = 0
     while not rospy.is_shutdown():
-        moveit_handler.fa.open_gripper()
-        # Get Block Pose from Perception service
-        des_pose_action_result = scan_for_blocks()
-        if(des_pose_action_result == False):
-            print("No blocks found lols")
-            break
-        des_pose = des_pose_action_result.pose # pose stamped
-        print("Recieved Goal:\n", des_pose)
-        # moveit_handler.add_box('pickup_block', des_pose, size=[0.025, 0.075, 0.015])
-        # break
+        if build_flag and curr_layer_id < 3:
+            moveit_handler.fa.open_gripper()
+            if pose_id == 5:
+                pose_id = 0
+            # Get Block Pose from Perception service
+            des_pose_action_result = scan_for_blocks(pose_id)
+            des_pose = des_pose_action_result.pose # pose stamped
+            print("Recieved Goal:\n", des_pose)
+            # moveit_handler.add_box('pickup_block', des_pose, size=[0.025, 0.075, 0.015])
+            # break
 
-        # pickup block
-        pickup_done = composed_pickup(des_pose)
-        if(not pickup_done):
-            print("Pickup failed")
-            break
+            # pickup block
+            pickup_done = composed_pickup(des_pose)
+            if(not pickup_done):
+                print("Pickup failed")
+                continue
 
-        # Checking if block has actually been picked up or not
-        gripper_width = moveit_handler.fa.get_gripper_width()
-        if(gripper_width < 0.07):
-            continue
+            # Checking if block has actually been picked up or not
+            gripper_width = moveit_handler.fa.get_gripper_width()
+            if(gripper_width < 0.07):
+                pose_id += 1
+                continue
 
-        # drop block
-        drop_done = drop_block_moveit(curr_block_id, curr_layer_id)
-        if(not drop_done):
-            print("Drop failed")
-            break
+            # drop block
+            drop_done = drop_block_moveit(curr_block_id, curr_layer_id)
+            if(not drop_done):
+                print("Drop failed")
+                continue
 
-        curr_block_id += 1
-        if(curr_block_id == 3):
-            curr_block_id = 0
-            curr_layer_id += 1
-            if(curr_layer_id == 5):
-                print("All blocks placed")
+            curr_block_id += 1
+            if(curr_block_id == 3):
+                curr_block_id = 0
+                curr_layer_id += 1
+                if(curr_layer_id == 3):
+                    print("All blocks placed")
+                    build_flag = False
+            
+        else:
+            if(curr_layer_id == 3 and not sweeper_picked):
+                sweeper_picked = pickup_sweeper_tool()
+
+            # Retry if sweeper is not picked
+            if not sweeper_picked:
+                continue
+
+            # Sweeper picked - reset tower layer by layer
+            reset_tower_sweep(curr_layer_id)
+            print('Sweeping done of layer %d', curr_layer_id)
+            curr_layer_id -= 1
+            if(curr_layer_id == 0):
+                drop_sweeper_tool()
                 break
+
+            
+        
+        
+
+        
+
