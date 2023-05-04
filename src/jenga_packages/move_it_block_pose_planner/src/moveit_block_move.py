@@ -398,7 +398,7 @@ def drop_block_moveit(block_id, layer_id):
         pose_quat_squeeze = middle_block_pose_even['orientation']
     # pose_to_drop = RigidTransform(rotation=quaternion.as_rotation_matrix(drop_pose_quat), translation = drop_pose_transl, from_frame="franka_tool", to_frame="world")
     
-    drop_pose_transl = drop_pose_transl + (2*layer_id+1)*np.array([0,0,0.0075]) + np.array([0,0,0.003])
+    drop_pose_transl = drop_pose_transl + (2*layer_id+1)*np.array([0,0,0.0078]) + np.array([0,0,0.0025])
 
     # fa.goto_pose(pose_to_drop, use_impedance=False, duration=15)
     pose_to_drop = PoseStamped()
@@ -419,7 +419,7 @@ def drop_block_moveit(block_id, layer_id):
     
     if(block_id == 2):
         pose_to_drop_squeeze = copy.deepcopy(pose_to_drop)
-        pose_to_drop_squeeze_transl = middle_block_pose_even['translation'] + (2*layer_id+1)*np.array([0,0,0.0075])
+        pose_to_drop_squeeze_transl = middle_block_pose_even['translation'] + (2*layer_id+1)*np.array([0,0,0.0078])
 
         pose_to_drop_squeeze.pose.position.x = pose_to_drop_squeeze_transl[0]
         pose_to_drop_squeeze.pose.position.y = pose_to_drop_squeeze_transl[1]
@@ -532,7 +532,7 @@ def scan_for_blocks():
     # Loop over poses and call detect blocks
     for i in range(5):
         pose_to_scan = get_posestamped(cartesian_poses_to_scan[i], orientation)
-        goto_pose_moveit(pose_to_scan, speed=4.5)
+        goto_pose_moveit(pose_to_scan, speed=4)
         print("Sending Goal")
         goal = GetBlocksGoal(True)
         action_client.send_goal(goal)
