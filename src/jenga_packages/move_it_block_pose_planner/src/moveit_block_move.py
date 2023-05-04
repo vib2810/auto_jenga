@@ -161,6 +161,26 @@ class moveit_planner():
         self.pub.publish(ros_msg)
         self.fa.stop_skill()
     
+    def get_straight_plan_given_pose(self, pose_goal: geometry_msgs.msg.Pose):
+        """
+        pose_goal: geometry_msgs.msg.Pose
+        Plans a trajectory given a tool pose goal
+        Returns joint_values
+        joint_values: numpy array of shape (N x 7)
+        """
+        waypoints = []
+        waypoints.append(copy.deepcopy(pose_goal))
+
+        (plan, fraction) = self.group.compute_cartesian_path(
+            waypoints, 0.01, 0.0  # waypoints to follow  # eef_step
+        )  # jump_threshold
+
+        joint_values = []
+        for i in range(len(plan.joint_trajectory.points)):
+            joint_values.append(plan.joint_trajectory.points[i].positions)
+        joint_values = np.array(joint_values)
+        return joint_values
+    
     # Test Functions
     def unit_test_joint(self, execute = False, guided = False):
         """
