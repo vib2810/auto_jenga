@@ -176,24 +176,24 @@ def compute_pose(pcd_cropped:np.ndarray=None):
     z_axis1 = u[:,2]
     z_axis2 = -u[:,2]
 
-    #select z axis that is pointing upwards
-    if(z_axis1[2]>0):
+    #select z axis that is pointing downwards
+    if(z_axis1[2]<0):
         z_axis = z_axis1
     else:
         z_axis = z_axis2
 
-    #get x axis
-    x_axis1 = u[:,0]
-    x_axis2 = -u[:,0]
+    #get y axis (its the x axis of the plane as we want to pickup along length of block)
+    y_axis1 = u[:,0]
+    y_axis2 = -u[:,0]
 
     # select x axis that is pointing towards global x axis
-    if(x_axis1[0]>0):
-        x_axis = x_axis1
+    if(y_axis1[0]>0):
+        y_axis = y_axis1
     else:
-        x_axis = x_axis2
+        y_axis = y_axis2
     
     # get y axis
-    y_axis = np.cross(z_axis,x_axis)
+    x_axis = np.cross(y_axis,z_axis)
     rot_mat = np.vstack((x_axis,y_axis,z_axis)).T
 
     rot = R.from_matrix(rot_mat)
@@ -211,6 +211,31 @@ def compute_pose(pcd_cropped:np.ndarray=None):
     pose_in_base.pose.orientation.z = quat[2]
     pose_in_base.pose.orientation.w = quat[3]
     return pose_in_base
+
+def compute_hover_pose(base_to_block_pose: PoseStamped=None):
+    # input is pose in base frame
+    # first compute opt_to_block_pose
+    # translate y axis 5 cm, x axis -5
+    # convert back to base frame
+    try:
+        tf_buffer = tf2_ros.Buffer()
+        listener = tf2_ros.TransformListener(tf_buffer)
+
+        offset_mat = np.eye(4)
+        offset_mat[0,3] = 0.05
+        offset_mat[1,3] = 0
+        
+        base_to_block_mat = pose_to_transformation_matrix(base_to_block_pose.pose)
+        base_to_block_mat_trans = np.matmul(base_to_block_mat, offset_mat)
+        base_to_block_pose_trans = transformation_matrix_to_pose(base_to_block_mat_trans)
+
+        # convert to PoseStamped
+        base_to_block_pose_new_stamped = copy.deepcopy(base_to_block_pose)
+        base_to_block_pose_new_stamped.pose = base_to_block_pose_trans
+        return base_to_block_pose_new_stamped
+    except:
+        print("tf lookup failed in block pose conversion")
+        return None
 
 def compute_best_mask(mask_arr:np.ndarray=None,pointcloud=None):
 

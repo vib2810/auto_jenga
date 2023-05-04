@@ -36,6 +36,8 @@ if __name__ == "__main__":
         if(input_num==4):
             fa.stop_skill()
             fa.reset_joints()
+            # fa.open_gripper()
+            fa.close_gripper()
             break
 
     print("done")

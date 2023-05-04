@@ -115,8 +115,8 @@ class InstanceSegmenter:
         self.marker.type = Marker.CUBE
         self.marker.action = Marker.ADD
         self.marker.pose = pose.pose
-        self.marker.scale.x = 0.075  # Length
-        self.marker.scale.y = 0.025  # Width
+        self.marker.scale.x = 0.025  # Length
+        self.marker.scale.y = 0.075  # Width
         self.marker.scale.z = 0.015  # Height
         self.marker.color.r = 1.0
         self.marker.color.g = 0.0
@@ -163,8 +163,21 @@ class InstanceSegmenter:
         # #compute pcd
         pcd = create_point_cloud_from_depth_image(self.depth_img, camera, organized=True)
         pcd = pcd.astype(np.float32)
+        if(goal == True): # find the best block
+            best_mask, best_mask_id = compute_best_mask(mask_arr=masks,pointcloud=pcd)
+        else:
+            # choose the mask with centroid closest to the center of the image
+            best_mask_id = -1
+            closest_centroid_dist = 1e6
+            for i in range(len(masks)):
+                mask = masks[i]
+                centroid = np.median(np.argwhere(mask>0),axis=0)
+                centroid_dist = np.linalg.norm(centroid - np.array([360, 640]))
+                if(centroid_dist < closest_centroid_dist):
+                    closest_centroid_dist = centroid_dist
+                    best_mask_id = i
+            best_mask = masks[best_mask_id]
 
-        best_mask, best_mask_id = compute_best_mask(mask_arr=masks,pointcloud=pcd)
         print("Best Mask ID: ", best_mask_id)   
         if(best_mask_id==-1):
             rospy.logerr("No blocks detected")
@@ -174,7 +187,7 @@ class InstanceSegmenter:
 
         #find cropped point cloud using best_mask
         idx = best_mask == 1
-        # best_mask= cv2.erode(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 2)
+        best_mask= cv2.erode(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 4)
         pcd_cropped = pcd[best_mask == 1, :]
         pcl_cropped_base = transform_pcl_to_base(pcd_cropped)
         pcl_cropped_base = fit_plane_pcd(pcl_cropped_base)
@@ -199,7 +212,7 @@ class InstanceSegmenter:
             super_mask = np.clip(super_mask,0,255).astype(np.uint8)
             plot(super_mask,type="normal",title="Super Mask")
             self.publish_cuboid_marker(block_pose_base)
-            plot_pcd(pcl_cropped_base, centroid=centroid, angle=angle)
+            # plot_pcd(pcl_cropped_base, centroid=centroid, angle=angle)
         
         # Set action as being completed
         self._as.set_succeeded(self._result)
