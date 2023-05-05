@@ -303,7 +303,9 @@ def compute_best_mask(mask_arr:np.ndarray=None, pointcloud=None):
 
         # Find Centroid and orientation of block
         best_mask= cv2.erode(mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 4)
-        if(np.sum(best_mask)<4000):
+        area = np.sum(best_mask)
+        print("Area of mask_id=", mask_id, " is: ", area)
+        if(area<7000):
             print("Skipping small mask_id=", mask_id)
             continue
         pcd_cropped = pointcloud[best_mask == 1, :]
@@ -326,8 +328,13 @@ def compute_best_mask(mask_arr:np.ndarray=None, pointcloud=None):
         x_dists = np.abs(np.dot(pointcloud_rem - centroid, x_axis))
         y_dists = np.abs(np.dot(pointcloud_rem - centroid, y_axis))
         z_dists = np.abs(np.dot(pointcloud_rem - centroid, z_axis))
-        z_dist_top = np.dot(pointcloud_rem - centroid, -z_axis)
-
+        z_dist_top = np.dot(pointcloud_rem - centroid, z_axis)
+        # plot distances as an HxW image
+        x_dists = x_dists.reshape(pointcloud.shape[0], pointcloud.shape[1])
+        y_dists = y_dists.reshape(pointcloud.shape[0], pointcloud.shape[1])
+        z_dists = z_dists.reshape(pointcloud.shape[0], pointcloud.shape[1])
+        z_dist_top = z_dist_top.reshape(pointcloud.shape[0], pointcloud.shape[1])
+        # plot(x_dists, title="x_dists")
         n_points = np.sum(np.logical_and(np.logical_and(x_dists<0.025/2, y_dists<0.095/2), z_dists<0.015/2)) # see how many points are inside inflated block
         top_points = np.sum(z_dist_top > 0.02/2) # see how many points are above the block
         print("Mask ID:", mask_id, ", n_points= ", n_points, ", top_points= ", top_points)

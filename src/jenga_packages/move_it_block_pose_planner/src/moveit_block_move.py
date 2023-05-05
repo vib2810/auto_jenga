@@ -441,7 +441,7 @@ def pickup_sweeper_tool():
     global moveit_handler
     # Go to pre-defined pose
     sweeper_dict = {'orientation': np.array([0, 1, 0, 0]), #w, x, y, z
-                    'translation': np.array([0.4844, 0.3709, 0.02246])} # Pre-determined sufficiently far from tower
+                    'translation': np.array([0.4844, 0.3209, 0.02246])} # Pre-determined sufficiently far from tower
     
     sweeper_pose = PoseStamped()
     sweeper_pose.header.frame_id = 'panda_link0'
@@ -453,7 +453,7 @@ def pickup_sweeper_tool():
     sweeper_pose.pose.orientation.y = sweeper_dict['orientation'][2]
     sweeper_pose.pose.orientation.z = sweeper_dict['orientation'][3]
 
-    goto_pose_moveit(sweeper_pose, speed=1.5)
+    goto_pose_moveit(sweeper_pose, speed=2.5)
     # close gripper
     moveit_handler.fa.close_gripper()
     # if gripper width > thresh -> grip succesful
@@ -472,7 +472,7 @@ def drop_sweeper_tool():
     global moveit_handler
     # Go to predefined pose
     sweeper_dict = {'orientation': np.array([0, 1, 0, 0]), #w, x, y, z
-                    'translation': np.array([0.4844, 0.3709, 0.02246])} # Pre-determined sufficiently far from tower
+                    'translation': np.array([0.4844, 0.3209, 0.02246])} # Pre-determined sufficiently far from tower
     
     sweeper_pose = PoseStamped()
     sweeper_pose.header.frame_id = 'panda_link0'
@@ -484,7 +484,7 @@ def drop_sweeper_tool():
     sweeper_pose.pose.orientation.y = sweeper_dict['orientation'][2]
     sweeper_pose.pose.orientation.z = sweeper_dict['orientation'][3]
 
-    goto_pose_moveit(sweeper_pose, speed=1.5)
+    goto_pose_moveit(sweeper_pose, speed=2.5)
     # Open gripper
     moveit_handler.fa.open_gripper()
     return True
@@ -501,7 +501,7 @@ def reset_tower_sweep(layer_id):
         rotation_sign = -1
 
     sweep_pose_start_dict = {'orientation': np.array([0, -0.9238, rotation_sign*0.3826, 0 ]), 
-                        'translation': np.array([0.55 + (rotation_sign==1)*0.1, 0.175, (2*layer_id+1)*0.0078 + 0.01])}
+                        'translation': np.array([0.55 + rotation_sign*0.05, 0.2, (2*layer_id+1)*0.0078 + 0.022])}
     
     sweep_pose_start = PoseStamped()
     sweep_pose_start.header.frame_id = 'panda_link0'
@@ -515,7 +515,7 @@ def reset_tower_sweep(layer_id):
     
     # Keep the end point longer away the lower the layer id to help spread out blocks more
     sweep_pose_end_dict = {'orientation': np.array([0, -0.9238,rotation_sign*0.3826, 0]), 
-                        'translation': np.array([0.65 + (rotation_sign==1)*-0.1, -0.175*(4-layer_id), (2*layer_id+1)*0.0078 + 0.01])}
+                        'translation': np.array([0.55 - rotation_sign*0.05, 0.0 , (2*layer_id+1)*0.0078 + 0.022])}
     
     sweep_pose_end = PoseStamped()
     sweep_pose_end.header.frame_id = 'panda_link0'
@@ -528,14 +528,32 @@ def reset_tower_sweep(layer_id):
     sweep_pose_end.pose.orientation.z = sweep_pose_end_dict['orientation'][3]
     
     # Using fpy since collisions are needed
-    goto_pose_moveit(sweep_pose_start, speed=1.5)
+    goto_pose_moveit(sweep_pose_start, speed=2.5)
     goto_pose_moveit(sweep_pose_end, speed=5)
-    goto_pose_moveit(sweep_pose_start, speed=5)
+    goto_pose_moveit(sweep_pose_start, speed=2.5)
     
     return True
 
-    # Reset all obstacles for next run 
+    # Reset all obstacles for next run
+
+def block_sweep_to_left():
+    global moveit_handler
+
+    sweeper_dict_init = {'orientation': np.array([0, 1, 0, 0]), #w, x, y, z
+                    'translation': np.array([0.355, 0.2, 0.028])} # Pre-determined sufficiently far from tower
+
+    sweep_pose_starts = []
+    sweep_pose_ends = []
+    for i in range(5):
+        sweep_pose_starts.append(get_posestamped(sweeper_dict_init['translation'] + np.array([0.065*i, 0, 0]), sweeper_dict_init['orientation']))
+        sweep_pose_ends.append(get_posestamped(sweeper_dict_init['translation'] + np.array([0.065*i, -0.32, 0]), sweeper_dict_init['orientation']))
     
+    for i in range(5):
+        goto_pose_moveit(sweep_pose_starts[i], speed=3)
+        goto_pose_moveit(sweep_pose_ends[i], speed=5)
+        hover_block(sweep_pose_ends[i], 0.07, speed=1.8)
+        if(i < 4):
+            hover_block(sweep_pose_starts[i+1], 0.07, speed=2.5) 
 
 def composed_pickup(req_pose):
     global fa
@@ -623,7 +641,7 @@ def scan_for_blocks(pose_id=0):
 
     cartesian_poses_to_scan = []
         
-    centroid = np.array([0.55, -0.1, 0.2])
+    centroid = np.array([0.55, -0.15, 0.2])
     delta_xy = np.array([[-0.1, -0.1, 0], [-0.1, 0.1, 0], [0,0,0], [0.1, -0.1, 0], [0.1, 0.1, 0]])
     orientation = np.array([0,1,0,0])
     
@@ -708,11 +726,12 @@ if __name__ == '__main__':
                 curr_block_id = 0
                 curr_layer_id += 1
                 if(curr_layer_id == 3):
+                    curr_layer_id -= 1
                     print("All blocks placed")
                     build_flag = False
             
         else:
-            if(curr_layer_id == 3 and not sweeper_picked):
+            if(curr_layer_id == 2 and not sweeper_picked):
                 sweeper_picked = pickup_sweeper_tool()
 
             # Retry if sweeper is not picked
@@ -723,9 +742,18 @@ if __name__ == '__main__':
             reset_tower_sweep(curr_layer_id)
             print('Sweeping done of layer %d', curr_layer_id)
             curr_layer_id -= 1
-            if(curr_layer_id == 0):
+            if(curr_layer_id == -1):
+                curr_layer_id = 0
+                curr_block_id = 0
+                build_flag = True
+                sweeper_picked = False
+                block_sweep_to_left()
                 drop_sweeper_tool()
-                break
+                moveit_handler.fa.reset_joints()
+            
+   
+    
+    print("All Done")
 
             
         
