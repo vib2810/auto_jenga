@@ -1,0 +1,5 @@
+<launch>
+  <node name="moveit_block_move" pkg="fsm_handler" 
+            type="moveit_block_move.py" output="screen">
+    </node>
+</launch>

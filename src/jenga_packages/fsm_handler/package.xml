@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>moveit_block_pose_planner</name>
+  <name>fsm_handler</name>
   <version>0.0.1</version>
   <description>
-    My package description
+    fsm_handler
   </description>
 
   <maintainer email="dhanvi.sreeni@gmail.com">Dhanvi Sreenivasan</maintainer>

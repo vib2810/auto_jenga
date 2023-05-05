@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(moveit_block_pose_planner)
+project(fsm_handler)
 
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED COMPONENTS

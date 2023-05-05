@@ -4,7 +4,7 @@ import rospy
 # import tf
 import numpy as np
 from geometry_msgs.msg import PoseStamped, Pose
-from move_it_block_pose_planner.srv import *
+from fsm_handler.srv import *
 import quaternion
 from autolab_core import RigidTransform
 # 75mm length, 15mm height, 25 mm width
