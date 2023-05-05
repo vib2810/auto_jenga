@@ -1,5 +1,0 @@
-geometry_msgs/PoseStamped des_pose
-int32 block_id
-int32 layer_id
----
-bool success
