@@ -146,7 +146,7 @@ def fit_plane_pcd(pcd: np.ndarray):
         return inliers
     
     num_itrs = 100
-    threshold = 0.0005
+    threshold = 0.0007
     best_inliers = []
     best_plane = None
     for i in range(num_itrs):
@@ -217,11 +217,6 @@ def compute_pose(pcd_cropped:np.ndarray=None, ret_vecs = False):
         # select y axis that results in minimum deviation from y_opt_in_base (min turn angle of gripper)
         dot_1 = np.dot(y_end_in_base,y_axis1)
         dot_2 = np.dot(y_end_in_base,y_axis2)
-        print("y axis 1", y_axis1)
-        print("y axis 2", y_axis2)
-        print("y_end_in_base", y_end_in_base)
-        print("dot_1", dot_1)
-        print("dot_2", dot_2)
         if(dot_1>dot_2):
             y_axis = y_axis1
         else:
@@ -450,7 +445,7 @@ def plot_pcd(points, centroid=None, angle=None):
         mesh_frame.rotate(rot_matrix)
 
     if(centroid is not None):
-        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.0025)
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.0010)
         sphere.paint_uniform_color([1, 0, 0])  # Set color to red
         sphere.translate(centroid)
 

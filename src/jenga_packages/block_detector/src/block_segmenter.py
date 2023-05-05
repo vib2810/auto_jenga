@@ -188,10 +188,10 @@ class InstanceSegmenter:
             best_mask= cv2.erode(best_mask.astype(np.uint8),np.ones((5,5),np.uint8),iterations = 4)
             pcd_cropped = pcd[best_mask == 1, :]
             pcl_cropped_base = transform_pcl_to_base(pcd_cropped)
-            pcl_cropped_base = fit_plane_pcd(pcl_cropped_base)
+            pcl_cropped_plane = fit_plane_pcd(pcl_cropped_base)
 
             #find centroid and orientation of block
-            block_pose_base = compute_pose(pcl_cropped_base) #pose stamped
+            block_pose_base = compute_pose(pcl_cropped_plane) #pose stamped
 
         print("Best Mask ID: ", best_mask_id)   
         if(best_mask_id==-1):
