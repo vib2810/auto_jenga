@@ -11,6 +11,10 @@ Watch our YouTube demonstration:
 
 https://youtu.be/B1N4hSssyfQ
 
+Report:
+
+https://drive.google.com/file/d/18JBqGNga69x8r2U_FHgkodvnfkotrfUr/view?usp=drivesdk
+
 ## Pre-requisites:
 1. Install Docker
 2. Install Nvidia Docker
