@@ -63,7 +63,7 @@ https://drive.google.com/file/d/18JBqGNga69x8r2U_FHgkodvnfkotrfUr/view?usp=drive
    - `mkdir weights`
 
 2. Download model weights
-   - ```
+   -    ```
         wget "https://drive.google.com/uc?export=download&id=18XffSSU13EzuJ_8uUEhqZJU6YAyEz4q0" -O best.pt
         ```
 3. The instance segmentation dataset including Jenga blocks can be found at this [link](https://drive.google.com/file/d/1qUsEvA0-WESyihHy6-eqNq8g5hohzBKS/view?usp=share_link)
