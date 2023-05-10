@@ -67,7 +67,7 @@ https://drive.google.com/file/d/18JBqGNga69x8r2U_FHgkodvnfkotrfUr/view?usp=drive
         wget "https://drive.google.com/uc?export=download&id=18XffSSU13EzuJ_8uUEhqZJU6YAyEz4q0" -O best.pt
         ```
 3. The instance segmentation dataset including Jenga blocks can be found at this [link](https://drive.google.com/file/d/1qUsEvA0-WESyihHy6-eqNq8g5hohzBKS/view?usp=share_link)
-. We also provide a [tutorial](https://colab.research.google.com/drive/1GQwshAy2_xJ1y4kIV15M3OMHiS9N9oYl?usp=sharing) on how to configure and use our dataset for instance segmentation using YOLOv8. This tutorial is adapted from official roboflow tutorial at this [link](https://colab.research.google.com/github/roboflow-ai/notebooks/blob/main/notebooks/train-yolov8-instance-segmentation-on-custom-dataset.ipynb).
+. We also provide a [tutorial](https://colab.research.google.com/drive/1GQwshAy2_xJ1y4kIV15M3OMHiS9N9oYl?usp=sharing) on how to configure and use our dataset for instance segmentation using YOLOv8. This tutorial is adapted from official [Roboflow](https://roboflow.com/) tutorial at this [link](https://colab.research.google.com/github/roboflow-ai/notebooks/blob/main/notebooks/train-yolov8-instance-segmentation-on-custom-dataset.ipynb).
  
       
 
