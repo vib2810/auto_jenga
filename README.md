@@ -83,7 +83,7 @@ https://drive.google.com/file/d/18JBqGNga69x8r2U_FHgkodvnfkotrfUr/view?usp=drive
       ```
     - Inside the container:
         ```
-        roslaunch manipulation demo_moveit.py
+        roslaunch manipulation demo_moveit.launch
         ```
 
 3. Run the block detection action server
